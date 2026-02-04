@@ -1,10 +1,15 @@
 import { useState, useMemo } from 'react';
 import { 
   FileText,
-  Printer
+  Printer,
+  Search,
+  CheckCircle2,
+  XCircle,
+  Download
 } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -12,6 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useDues, useMembers } from '@/hooks/useFirebaseData';
 import { format, parseISO } from 'date-fns';
 
@@ -20,6 +31,12 @@ const ReceiptsPage = () => {
   const { members } = useMembers();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
+  const [verifyReceiptId, setVerifyReceiptId] = useState('');
+  const [verificationResult, setVerificationResult] = useState<{
+    found: boolean;
+    receipt?: typeof dues[0];
+  } | null>(null);
+  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
 
   const safeParseISO = (value?: string) => {
     if (!value) return null;
@@ -63,15 +80,18 @@ const ReceiptsPage = () => {
     return Array.from(periods).sort().reverse();
   }, [paidDues]);
 
-  const printReceipt = (due: typeof paidDues[0]) => {
-    const member = members.find(m => m.id === due.memberId);
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const verifyReceipt = () => {
+    const found = paidDues.find(
+      due => due.receiptNumber?.toLowerCase() === verifyReceiptId.trim().toLowerCase()
+    );
+    setVerificationResult(found ? { found: true, receipt: found } : { found: false });
+    setShowVerifyDialog(true);
+  };
 
-    // Safely get amount as number
+  const generateReceiptHTML = (due: typeof paidDues[0]) => {
+    const member = members.find(m => m.id === due.memberId);
     const amount = Number(due.amount) || 0;
     
-    // Safely format dates
     const periodStart = safeParseISO(due.periodStart);
     const periodEnd = safeParseISO(due.periodEnd);
     const periodText = periodStart && periodEnd 
@@ -82,7 +102,7 @@ const ReceiptsPage = () => {
       ? format(new Date(due.paidDate), 'dd MMM yyyy')
       : 'N/A';
 
-    printWindow.document.write(`
+    return `
       <!DOCTYPE html>
       <html>
         <head>
@@ -221,14 +241,51 @@ const ReceiptsPage = () => {
             <p>Thank you for being a valued member!</p>
             <p>This is a computer-generated receipt.</p>
           </div>
-          
-          <script>
-            window.onload = function() { 
-              setTimeout(function() { window.print(); }, 500);
-            };
-          </script>
         </body>
       </html>
+    `;
+  };
+
+  const downloadPDF = async (due: typeof paidDues[0]) => {
+    const html = generateReceiptHTML(due);
+    
+    // Create a hidden iframe for PDF generation
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.top = '-10000px';
+    iframe.style.left = '-10000px';
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) return;
+    
+    iframeDoc.open();
+    iframeDoc.write(html);
+    iframeDoc.close();
+
+    // Wait for content to load
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Trigger print dialog which allows saving as PDF
+    iframe.contentWindow?.print();
+
+    // Clean up after a delay
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  };
+
+  const printReceipt = (due: typeof paidDues[0]) => {
+    const html = generateReceiptHTML(due);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(html + `
+      <script>
+        window.onload = function() { 
+          setTimeout(function() { window.print(); }, 500);
+        };
+      </script>
     `);
     printWindow.document.close();
   };
@@ -239,6 +296,111 @@ const ReceiptsPage = () => {
       searchPlaceholder="Search receipts..."
       onSearch={setSearchQuery}
     >
+      {/* Receipt Verification Section */}
+      <div className="card-elevated p-4 sm:p-6 mb-6">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Search className="w-5 h-5 text-primary" />
+          Verify Receipt
+        </h3>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Input
+            placeholder="Enter Receipt ID (e.g., RCP-XXXXXX)"
+            value={verifyReceiptId}
+            onChange={(e) => setVerifyReceiptId(e.target.value)}
+            className="flex-1"
+            onKeyDown={(e) => e.key === 'Enter' && verifyReceiptId && verifyReceipt()}
+          />
+          <Button 
+            onClick={verifyReceipt}
+            disabled={!verifyReceiptId.trim()}
+            className="btn-primary gap-2"
+          >
+            <Search className="w-4 h-4" />
+            Verify
+          </Button>
+        </div>
+      </div>
+
+      {/* Verification Result Dialog */}
+      <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {verificationResult?.found ? (
+                <>
+                  <CheckCircle2 className="w-6 h-6 text-success" />
+                  Receipt Verified
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-6 h-6 text-destructive" />
+                  Receipt Not Found
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {verificationResult?.found && verificationResult.receipt ? (
+            <div className="space-y-4">
+              <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+                <p className="text-sm text-success font-medium mb-2">✓ This receipt is valid</p>
+                <p className="font-mono font-bold text-lg">{verificationResult.receipt.receiptNumber}</p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Member</span>
+                  <span className="font-medium">{verificationResult.receipt.memberName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-bold">₹{verificationResult.receipt.amount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Paid On</span>
+                  <span>{verificationResult.receipt.paidDate ? format(new Date(verificationResult.receipt.paidDate), 'dd MMM yyyy') : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Period</span>
+                  <span className="text-sm">
+                    {safeParseISO(verificationResult.receipt.periodStart) && safeParseISO(verificationResult.receipt.periodEnd)
+                      ? `${format(parseISO(verificationResult.receipt.periodStart), 'dd MMM')} - ${format(parseISO(verificationResult.receipt.periodEnd), 'dd MMM yyyy')}`
+                      : 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2"
+                  onClick={() => printReceipt(verificationResult.receipt!)}
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </Button>
+                <Button 
+                  className="flex-1 gap-2 btn-primary"
+                  onClick={() => downloadPDF(verificationResult.receipt!)}
+                >
+                  <Download className="w-4 h-4" />
+                  Save PDF
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-muted-foreground mb-2">
+                No receipt found with ID: <strong>{verifyReceiptId}</strong>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Please check the receipt number and try again.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
@@ -305,14 +467,24 @@ const ReceiptsPage = () => {
                 </div>
               </div>
 
-              <Button 
-                variant="outline" 
-                className="w-full gap-2"
-                onClick={() => printReceipt(due)}
-              >
-                <Printer className="w-4 h-4" />
-                Print Receipt
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2"
+                  onClick={() => printReceipt(due)}
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2"
+                  onClick={() => downloadPDF(due)}
+                >
+                  <Download className="w-4 h-4" />
+                  PDF
+                </Button>
+              </div>
             </div>
           ))}
         </div>
