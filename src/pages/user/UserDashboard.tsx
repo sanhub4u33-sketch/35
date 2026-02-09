@@ -13,7 +13,9 @@ import {
   Camera,
   TrendingUp,
   BarChart3,
-  MessageCircle
+  MessageCircle,
+  MapPin,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +24,7 @@ import { ref, get, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 import { Member } from '@/types/library';
 import { toast } from 'sonner';
+import { verifyLibraryLocation } from '@/lib/geolocation';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, differenceInDays } from 'date-fns';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import ChatModule from '@/components/chat/ChatModule';
@@ -79,6 +82,7 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [memberData, setMemberData] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
+  const [locationChecking, setLocationChecking] = useState(false);
   const { attendance, markEntry, markExit, getMemberAttendance } = useAttendance();
   const { dues, getMemberDues } = useDues();
   const currentSession = useCurrentMemberAttendance(memberData?.id || '');
@@ -184,24 +188,48 @@ const UserDashboard = () => {
     };
   }, [memberAttendance, thisMonthAttendance, memberData]);
 
+  const verifyAndRun = async (action: () => Promise<void>, actionName: string) => {
+    setLocationChecking(true);
+    try {
+      const result = await verifyLibraryLocation();
+      if (!result.allowed) {
+        if (result.error) {
+          toast.error(result.error);
+        } else {
+          toast.error(
+            `You are ${result.distance}m away from the library. You must be within 150m to mark ${actionName}.`
+          );
+        }
+        return;
+      }
+      await action();
+    } finally {
+      setLocationChecking(false);
+    }
+  };
+
   const handleMarkEntry = async () => {
     if (!memberData) return;
-    try {
-      await markEntry(memberData.id, memberData.name);
-      toast.success('Entry marked successfully!');
-    } catch (error) {
-      toast.error('Failed to mark entry');
-    }
+    await verifyAndRun(async () => {
+      try {
+        await markEntry(memberData.id, memberData.name);
+        toast.success('Entry marked successfully!');
+      } catch (error) {
+        toast.error('Failed to mark entry');
+      }
+    }, 'entry');
   };
 
   const handleMarkExit = async () => {
     if (!memberData || !currentSession) return;
-    try {
-      await markExit(currentSession.id, memberData.id, memberData.name, currentSession.entryTime);
-      toast.success('Exit marked successfully!');
-    } catch (error) {
-      toast.error('Failed to mark exit');
-    }
+    await verifyAndRun(async () => {
+      try {
+        await markExit(currentSession.id, memberData.id, memberData.name, currentSession.entryTime);
+        toast.success('Exit marked successfully!');
+      } catch (error) {
+        toast.error('Failed to mark exit');
+      }
+    }, 'exit');
   };
 
   const handleLogout = async () => {
@@ -356,9 +384,14 @@ const UserDashboard = () => {
                     onClick={handleMarkExit}
                     variant="outline"
                     className="w-full sm:w-auto gap-2 border-destructive text-destructive hover:bg-destructive/10"
+                    disabled={locationChecking}
                   >
-                    <LogOutIcon className="w-4 h-4" />
-                    Mark Exit
+                    {locationChecking ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <LogOutIcon className="w-4 h-4" />
+                    )}
+                    {locationChecking ? 'Verifying...' : 'Mark Exit'}
                   </Button>
                 </div>
               ) : (
@@ -366,9 +399,14 @@ const UserDashboard = () => {
                   onClick={handleMarkEntry}
                   className="w-full sm:w-auto btn-primary gap-2"
                   size="lg"
+                  disabled={locationChecking}
                 >
-                  <LogIn className="w-5 h-5" />
-                  Mark Entry
+                  {locationChecking ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <LogIn className="w-5 h-5" />
+                  )}
+                  {locationChecking ? 'Verifying Location...' : 'Mark Entry'}
                 </Button>
               )}
             </div>
