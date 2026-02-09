@@ -13,6 +13,7 @@ import DuesPage from "./pages/admin/DuesPage";
 import ReceiptsPage from "./pages/admin/ReceiptsPage";
 import UserDashboard from "./pages/user/UserDashboard";
 import NotFound from "./pages/NotFound";
+ import InstallPrompt from "./components/pwa/InstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
+           <InstallPrompt />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

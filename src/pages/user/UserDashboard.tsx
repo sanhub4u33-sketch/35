@@ -12,7 +12,8 @@ import {
   LogOut as LogOutIcon,
   Camera,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +23,9 @@ import { database } from '@/lib/firebase';
 import { Member } from '@/types/library';
 import { toast } from 'sonner';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, differenceInDays } from 'date-fns';
+import NotificationBell from '@/components/notifications/NotificationBell';
+import ChatModule from '@/components/chat/ChatModule';
+import { useChat } from '@/hooks/useChatAndNotifications';
 
 // Image compression utility
 const compressImage = (file: File, maxSizeKB: number = 100): Promise<string> => {
@@ -80,6 +84,9 @@ const UserDashboard = () => {
   const currentSession = useCurrentMemberAttendance(memberData?.id || '');
   const [currentMonth] = useState(new Date());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showChat, setShowChat] = useState(false);
+  // Check if chat is enabled
+  const { chatEnabled } = useChat(memberData?.id || '', memberData?.name || '');
 
   useEffect(() => {
     const fetchMemberData = async () => {
@@ -112,8 +119,8 @@ const UserDashboard = () => {
 
   const memberAttendance = memberData ? getMemberAttendance(memberData.id) : [];
   const memberDues = memberData ? getMemberDues(memberData.id) : [];
-  const pendingDues = memberDues.filter(d => d.status === 'pending' || d.status === 'overdue');
-  const totalPending = pendingDues.reduce((sum, d) => sum + d.amount, 0);
+  const paidDues = memberDues.filter(d => d.status === 'paid');
+  const totalPaid = paidDues.reduce((sum, d) => sum + d.amount, 0);
 
   // Calendar data
   const monthStart = startOfMonth(currentMonth);
@@ -264,6 +271,21 @@ const UserDashboard = () => {
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-4">
+            {/* Chat Icon */}
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => chatEnabled && setShowChat(true)}
+              disabled={!chatEnabled}
+              className={!chatEnabled ? 'opacity-50 cursor-not-allowed' : ''}
+              title={chatEnabled ? 'Open Chat' : 'Chat is disabled by admin'}
+            >
+              <MessageCircle className="w-5 h-5" />
+            </Button>
+
+            {/* Notification Bell */}
+            {memberData && <NotificationBell memberId={memberData.id} />}
+
             <div className="text-right hidden sm:block">
               <p className="font-medium text-foreground text-sm">{memberData.name}</p>
               <p className="text-xs text-muted-foreground">{memberData.email}</p>
@@ -275,6 +297,15 @@ const UserDashboard = () => {
           </div>
         </div>
       </header>
+
+      {/* Chat Module */}
+      {showChat && memberData && (
+        <ChatModule 
+          memberId={memberData.id}
+          memberName={memberData.name}
+          onClose={() => setShowChat(false)}
+        />
+      )}
 
       <main className="container mx-auto px-4 py-6 sm:py-8">
         {/* Welcome Section with Profile Picture */}
@@ -391,18 +422,14 @@ const UserDashboard = () => {
         <div className="grid sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div className="stat-card">
             <div className="flex items-center gap-3 mb-2">
-              {pendingDues.length > 0 ? (
-                <AlertCircle className="w-5 h-5 text-warning" />
-              ) : (
-                <CheckCircle className="w-5 h-5 text-success" />
-              )}
-              <span className="text-muted-foreground">Pending Fees</span>
+              <CheckCircle className="w-5 h-5 text-success" />
+              <span className="text-muted-foreground">Total Fee Paid</span>
             </div>
-            <p className={`text-2xl font-bold ${pendingDues.length > 0 ? 'text-warning' : 'text-success'}`}>
-              ₹{totalPending}
+            <p className="text-2xl font-bold text-success">
+              ₹{totalPaid}
             </p>
             <p className="text-sm text-muted-foreground">
-              {pendingDues.length} fee{pendingDues.length !== 1 ? 's' : ''} pending
+              {paidDues.length} payment{paidDues.length !== 1 ? 's' : ''} made
             </p>
           </div>
 

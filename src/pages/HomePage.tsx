@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Clock, 
   Wifi, 
@@ -14,8 +15,43 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import heroImage from '@/assets/hero-library.jpg';
+import { useAuth } from '@/contexts/AuthContext';
+import { isPWAStandalone } from '@/lib/pwa';
 
 const HomePage = () => {
+  const { user, userRole, loading } = useAuth();
+  const navigate = useNavigate();
+  const pwa = isPWAStandalone();
+
+  useEffect(() => {
+    if (!pwa) return;
+    if (loading) return;
+
+    // PWA cold-starts on Android can restore the Firebase session first, and resolve role later.
+    // To avoid dropping the user on the public homepage (showing a Login button) after reopen,
+    // route any authenticated user straight to their dashboard.
+    if (user) {
+      const isOwnerAdmin = user.email === 'owner@gmail.com';
+      const target = isOwnerAdmin ? '/admin' : '/user';
+      navigate(target, { replace: true });
+      return;
+    }
+
+    // Non-PWA web visits should stay on the marketing homepage.
+    // (No action needed.)
+  }, [pwa, loading, user, userRole, navigate]);
+
+  if (pwa && (loading || !!user)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Opening your account…</p>
+        </div>
+      </div>
+    );
+  }
+
   const features = [
     {
       icon: Clock,
@@ -231,11 +267,11 @@ const HomePage = () => {
                   Monthly Membership
                 </h3>
                 <div className="flex items-baseline gap-2 mb-6">
-                  <span className="text-4xl font-bold text-primary">₹500</span>
+                  <span className="text-4xl font-bold text-primary">₹250</span>
                   <span className="text-muted-foreground">/month onwards</span>
                 </div>
                 <p className="text-muted-foreground mb-6">
-                  Affordable plans starting from ₹500/month. Contact us for special rates and packages.
+                  Affordable plans starting from ₹250/month. Contact us for special rates and packages.
                 </p>
                 <a href="tel:+917991304874">
                   <Button className="w-full btn-primary">Call to Enquire</Button>

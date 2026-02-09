@@ -9,23 +9,74 @@ import {
   AlertCircle,
   ArrowRight,
   LogIn,
-  LogOut as LogOutIcon
+  LogOut as LogOutIcon,
+  Bell,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
 import { useMembers, useAttendance, useDues, useActivities } from '@/hooks/useFirebaseData';
+import { useAdminNotifications, useChatSettings } from '@/hooks/useChatAndNotifications';
 import { format, parseISO } from 'date-fns';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
 
 const AdminDashboard = () => {
   const { members } = useMembers();
   const { getTodayAttendance } = useAttendance();
-  const { dues, getPendingDues } = useDues();
+  const { dues } = useDues();
   const { activities } = useActivities();
+  const { members: allMembers, sendNotification } = useAdminNotifications();
+  const { chatEnabled, toggleChat } = useChatSettings();
+
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifMessage, setNotifMessage] = useState('');
+  const [notifRecipient, setNotifRecipient] = useState('all');
+  const [sendingNotif, setSendingNotif] = useState(false);
 
   const todayAttendance = getTodayAttendance();
   const presentToday = todayAttendance.filter(a => !a.exitTime).length;
-  const pendingDues = getPendingDues();
-  const totalPendingAmount = pendingDues.reduce((sum, due) => sum + due.amount, 0);
+  
+  // Calculate this month's payments
+  const currentMonth = new Date().toISOString().substring(0, 7);
+  const thisMonthPayments = dues.filter(d => d.paidDate?.substring(0, 7) === currentMonth);
+  const totalThisMonth = thisMonthPayments.reduce((sum, due) => sum + due.amount, 0);
   const recentActivities = activities.slice(0, 10);
+
+  const handleSendNotification = async () => {
+    if (!notifTitle.trim() || !notifMessage.trim()) {
+      toast.error('Please enter title and message');
+      return;
+    }
+
+    setSendingNotif(true);
+    try {
+      await sendNotification(notifTitle, notifMessage, notifRecipient);
+      const recipientName = notifRecipient === 'all' 
+        ? 'all members' 
+        : allMembers.find(m => m.id === notifRecipient)?.name || 'member';
+      toast.success(`Notification sent to ${recipientName}`);
+      setNotifTitle('');
+      setNotifMessage('');
+      setNotifRecipient('all');
+    } catch (error) {
+      toast.error('Failed to send notification');
+    } finally {
+      setSendingNotif(false);
+    }
+  };
 
   const stats = [
     {
@@ -41,16 +92,16 @@ const AdminDashboard = () => {
       color: 'bg-success/10 text-success',
     },
     {
-      icon: AlertCircle,
-      label: 'Pending Dues',
-      value: pendingDues.length,
+      icon: IndianRupee,
+      label: 'This Month',
+      value: `₹${totalThisMonth.toLocaleString()}`,
       color: 'bg-warning/10 text-warning',
     },
     {
-      icon: IndianRupee,
-      label: 'Total Due Amount',
-      value: `₹${totalPendingAmount.toLocaleString()}`,
-      color: 'bg-destructive/10 text-destructive',
+      icon: TrendingUp,
+      label: 'Total Payments',
+      value: dues.length,
+      color: 'bg-accent/10 text-accent-foreground',
     },
   ];
 
@@ -152,20 +203,20 @@ const AdminDashboard = () => {
           )}
         </div>
 
-        {/* Pending Fees */}
+        {/* Recent Payments */}
         <div className="card-elevated p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display text-xl font-semibold text-foreground">Pending Fees</h2>
+            <h2 className="font-display text-xl font-semibold text-foreground">Recent Payments</h2>
             <Link to="/admin/dues" className="text-primary hover:underline text-sm flex items-center gap-1">
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          {pendingDues.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No pending fees</p>
+          {dues.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No payments recorded yet</p>
           ) : (
             <div className="space-y-3 max-h-80 overflow-y-auto">
-            {pendingDues.slice(0, 5).map((due) => (
+            {dues.slice(0, 5).map((due) => (
                 <div 
                   key={due.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
@@ -179,9 +230,9 @@ const AdminDashboard = () => {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-destructive">₹{due.amount}</p>
-                    <p className={`text-xs ${due.status === 'overdue' ? 'text-destructive' : 'text-warning'}`}>
-                      {due.status}
+                    <p className="font-semibold text-success">₹{due.amount}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {due.paidDate ? format(parseISO(due.paidDate), 'dd MMM') : ''}
                     </p>
                   </div>
                 </div>
@@ -226,6 +277,83 @@ const AdminDashboard = () => {
               <Clock className="w-8 h-8 text-accent-foreground mx-auto mb-2" />
               <p className="font-medium text-foreground">Receipts</p>
             </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Chat & Notifications Section */}
+      <div className="grid lg:grid-cols-2 gap-8 mt-8">
+        {/* Chat Toggle */}
+        <div className="card-elevated p-6">
+          <h2 className="font-display text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" />
+            Chat Settings
+          </h2>
+          
+          <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
+            <div>
+              <p className="font-medium text-foreground">Enable Member Chat</p>
+              <p className="text-sm text-muted-foreground">
+                {chatEnabled ? 'Members can chat with each other' : 'Chat is disabled for all members'}
+              </p>
+            </div>
+            <Switch 
+              checked={chatEnabled} 
+              onCheckedChange={toggleChat}
+            />
+          </div>
+        </div>
+
+        {/* Send Notification */}
+        <div className="card-elevated p-6">
+          <h2 className="font-display text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            Send Notification
+          </h2>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Recipient</Label>
+              <Select value={notifRecipient} onValueChange={setNotifRecipient}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select recipient" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Members</SelectItem>
+                  {allMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input
+                placeholder="Notification title"
+                value={notifTitle}
+                onChange={(e) => setNotifTitle(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                placeholder="Type your message..."
+                value={notifMessage}
+                onChange={(e) => setNotifMessage(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <Button 
+              onClick={handleSendNotification} 
+              disabled={sendingNotif}
+              className="w-full btn-primary gap-2"
+            >
+              <Send className="w-4 h-4" />
+              {sendingNotif ? 'Sending...' : 'Send Notification'}
+            </Button>
           </div>
         </div>
       </div>

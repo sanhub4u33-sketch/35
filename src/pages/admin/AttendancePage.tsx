@@ -147,127 +147,106 @@ const AttendancePage = () => {
     setShowExportDialog(false);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     if (filteredAttendance.length === 0) {
       return;
     }
 
+    const { default: jsPDF } = await import('jspdf');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 15;
+    let yPos = 20;
+
+    // Header
+    pdf.setFontSize(20);
+    pdf.setTextColor(249, 115, 22);
+    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 7;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(102, 102, 102);
+    pdf.text('74XH+3HW, Ramuvapur, Mahmudabad, UP 261203', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.text('Phone: +91 79913 04874', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+
+    // Orange line
+    pdf.setDrawColor(249, 115, 22);
+    pdf.setLineWidth(0.8);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 12;
+
+    // Title
     const title = viewMode === 'day' 
       ? `Attendance Report - ${format(selectedDate, 'dd MMMM yyyy')}`
       : `Attendance Report - ${format(currentMonth, 'MMMM yyyy')}`;
+    pdf.setFontSize(14);
+    pdf.setTextColor(51, 51, 51);
+    pdf.text(title, margin, yPos);
+    yPos += 12;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    // Table Header
+    const colWidths = [35, 50, 30, 30, 35];
+    const headers = ['Date', 'Member', 'Entry', 'Exit', 'Duration'];
+    
+    pdf.setFillColor(249, 115, 22);
+    pdf.rect(margin, yPos - 5, pageWidth - 2 * margin, 10, 'F');
+    pdf.setFontSize(10);
+    pdf.setTextColor(255, 255, 255);
+    
+    let xPos = margin + 3;
+    headers.forEach((header, i) => {
+      pdf.text(header, xPos, yPos + 1);
+      xPos += colWidths[i];
+    });
+    yPos += 10;
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: Arial, sans-serif; 
-              padding: 40px; 
-              max-width: 800px; 
-              margin: 0 auto;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .header { 
-              text-align: center; 
-              border-bottom: 3px solid #f97316; 
-              padding-bottom: 20px; 
-              margin-bottom: 30px;
-            }
-            .header h1 { 
-              color: #f97316; 
-              font-size: 28px;
-              margin-bottom: 5px;
-            }
-            .header p { color: #666; font-size: 14px; }
-            .title { 
-              font-size: 18px; 
-              font-weight: bold; 
-              margin-bottom: 20px;
-              color: #333;
-            }
-            .stats {
-              display: flex;
-              gap: 20px;
-              margin-bottom: 20px;
-            }
-            .stat {
-              padding: 10px 15px;
-              background: #f5f5f5;
-              border-radius: 8px;
-            }
-            .stat-label { font-size: 12px; color: #666; }
-            .stat-value { font-size: 18px; font-weight: bold; color: #333; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 12px 8px; text-align: left; font-size: 14px; }
-            th { background-color: #f97316; color: white; font-weight: 600; }
-            tr:nth-child(even) { background-color: #fafafa; }
-            .in-library { color: #f59e0b; font-weight: 500; }
-            .footer { 
-              margin-top: 30px; 
-              text-align: center; 
-              color: #888; 
-              font-size: 12px;
-              padding-top: 20px;
-              border-top: 1px solid #ddd;
-            }
-            @media print {
-              body { padding: 20px; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Shri Hanumant Library</h1>
-            <p>74XH+3HW, Ramuvapur, Mahmudabad, UP 261203</p>
-            <p>Phone: +91 79913 04874</p>
-          </div>
-          
-          <div class="title">${title}</div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Member</th>
-                <th>Entry Time</th>
-                <th>Exit Time</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredAttendance.map(record => `
-                <tr>
-                  <td>${format(parseISO(record.date), 'dd MMM yyyy')}</td>
-                  <td>${record.memberName}</td>
-                  <td>${record.entryTime}</td>
-                  <td>${record.exitTime ? record.exitTime : '<span class="in-library">In Library</span>'}</td>
-                  <td>${record.duration ? `${Math.floor(record.duration / 60)}h ${record.duration % 60}m` : '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="footer">
-            <p>Generated on ${format(new Date(), 'dd MMM yyyy, hh:mm a')}</p>
-            <p>This is a computer-generated report.</p>
-          </div>
-          
-          <script>
-            window.onload = function() { 
-              setTimeout(function() { window.print(); }, 500);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    // Table Rows
+    pdf.setTextColor(51, 51, 51);
+    filteredAttendance.forEach((record, index) => {
+      if (yPos > 270) {
+        pdf.addPage();
+        yPos = 20;
+      }
+
+      if (index % 2 === 0) {
+        pdf.setFillColor(250, 250, 250);
+        pdf.rect(margin, yPos - 5, pageWidth - 2 * margin, 8, 'F');
+      }
+
+      xPos = margin + 3;
+      pdf.setFontSize(9);
+      pdf.text(format(parseISO(record.date), 'dd MMM yyyy'), xPos, yPos);
+      xPos += colWidths[0];
+      pdf.text(record.memberName.slice(0, 20), xPos, yPos);
+      xPos += colWidths[1];
+      pdf.text(record.entryTime, xPos, yPos);
+      xPos += colWidths[2];
+      pdf.text(record.exitTime || 'In Library', xPos, yPos);
+      xPos += colWidths[3];
+      pdf.text(record.duration ? `${Math.floor(record.duration / 60)}h ${record.duration % 60}m` : '-', xPos, yPos);
+      
+      yPos += 8;
+    });
+
+    // Footer
+    yPos += 10;
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 8;
+    pdf.setFontSize(9);
+    pdf.setTextColor(136, 136, 136);
+    pdf.text(`Generated on ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.text('This is a computer-generated report.', pageWidth / 2, yPos, { align: 'center' });
+
+    // Save PDF directly
+    const fileName = viewMode === 'day' 
+      ? `attendance_${format(selectedDate, 'yyyy-MM-dd')}.pdf`
+      : `attendance_${format(currentMonth, 'yyyy-MM')}.pdf`;
+    pdf.save(fileName);
     setShowExportDialog(false);
   };
 

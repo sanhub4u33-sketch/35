@@ -145,7 +145,9 @@ export const useAttendance = () => {
   };
 
   const getTodayAttendance = () => {
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date format to ensure correct timezone comparison
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     return attendance.filter(record => record.date === today);
   };
 
@@ -182,16 +184,10 @@ export const useDues = () => {
           id,
           ...(record as Omit<FeeRecord, 'id'>),
         }));
-        // Check for overdue fees
-        const today = new Date().toISOString().split('T')[0];
-        duesList.forEach(due => {
-          if (due.status === 'pending' && due.dueDate && due.dueDate < today) {
-            // Mark as overdue
-            const dueRef = ref(database, `dues/${due.id}`);
-            update(dueRef, { status: 'overdue' });
-          }
-        });
-        setDues(duesList);
+        // Sort by paid date descending (most recent first)
+        setDues(duesList.sort((a, b) => 
+          new Date(b.paidDate || b.createdAt).getTime() - new Date(a.paidDate || a.createdAt).getTime()
+        ));
       } else {
         setDues([]);
       }
@@ -201,78 +197,44 @@ export const useDues = () => {
     return () => unsubscribe();
   }, []);
 
-  const addDue = async (due: Omit<FeeRecord, 'id'>) => {
+  // Record a new manual payment entry
+  const recordPayment = async (payment: {
+    memberId: string;
+    memberName: string;
+    periodStart: string;
+    periodEnd: string;
+    amount: number;
+    paymentDate?: string; // Optional custom payment date in YYYY-MM-DD format
+  }) => {
+    const receiptNumber = `RCP-${Date.now()}`;
+    const now = new Date().toISOString();
+    // Use custom payment date if provided, otherwise use current date/time
+    const paidDate = payment.paymentDate 
+      ? new Date(payment.paymentDate + 'T12:00:00').toISOString() 
+      : now;
+    
     const duesRef = ref(database, 'dues');
     const newDueRef = push(duesRef);
-    await set(newDueRef, due);
-    return newDueRef.key;
-  };
-
-  // Create initial fee when member joins
-  const createInitialFee = async (memberId: string, memberName: string, amount: number, joinDate: string) => {
-    const periodStart = joinDate;
-    const periodEnd = format(addDays(parseISO(joinDate), 30), 'yyyy-MM-dd');
-    const dueDate = periodEnd;
-
-    await addDue({
-      memberId,
-      memberName,
-      periodStart,
-      periodEnd,
-      amount,
-      dueDate,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    });
-  };
-
-  // Create next 30-day fee after payment
-  const createNextCycleFee = async (memberId: string, memberName: string, amount: number, previousPeriodEnd: string) => {
-    const periodStart = previousPeriodEnd;
-    const periodEnd = format(addDays(parseISO(previousPeriodEnd), 30), 'yyyy-MM-dd');
-    const dueDate = periodEnd;
-
-    // Check if this fee already exists
-    const existingFee = dues.find(d => 
-      d.memberId === memberId && 
-      d.periodStart === periodStart
-    );
-    
-    if (!existingFee) {
-      await addDue({
-        memberId,
-        memberName,
-        periodStart,
-        periodEnd,
-        amount,
-        dueDate,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      });
-    }
-  };
-
-  const markAsPaid = async (dueId: string, memberId: string, memberName: string, amount: number, periodEnd: string) => {
-    const receiptNumber = `RCP-${Date.now()}`;
-    const paidDate = new Date().toISOString();
-    
-    const dueRef = ref(database, `dues/${dueId}`);
-    await update(dueRef, {
+    await set(newDueRef, {
+      memberId: payment.memberId,
+      memberName: payment.memberName,
+      periodStart: payment.periodStart,
+      periodEnd: payment.periodEnd,
+      amount: payment.amount,
+      dueDate: payment.periodEnd,
       status: 'paid',
       paidDate,
       receiptNumber,
+      createdAt: now,
     });
     
     await addActivity({
       type: 'payment',
-      memberId,
-      memberName,
-      timestamp: paidDate,
-      details: `Payment of ₹${amount} received from ${memberName}`,
+      memberId: payment.memberId,
+      memberName: payment.memberName,
+      timestamp: now,
+      details: `Payment of ₹${payment.amount} received from ${payment.memberName}`,
     });
-
-    // Create next cycle fee automatically
-    await createNextCycleFee(memberId, memberName, amount, periodEnd);
     
     return receiptNumber;
   };
@@ -281,11 +243,12 @@ export const useDues = () => {
     return dues.filter(due => due.memberId === memberId);
   };
 
-  const getPendingDues = () => {
-    return dues.filter(due => due.status === 'pending' || due.status === 'overdue');
+  const deletePayment = async (dueId: string) => {
+    const dueRef = ref(database, `dues/${dueId}`);
+    await remove(dueRef);
   };
 
-  return { dues, loading, addDue, markAsPaid, getMemberDues, getPendingDues, createInitialFee, createNextCycleFee };
+  return { dues, loading, recordPayment, getMemberDues, deletePayment };
 };
 
 export const useActivities = () => {

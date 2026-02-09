@@ -1,16 +1,16 @@
 import { useState, useMemo } from 'react';
 import { 
-  X, 
   Edit, 
   Save, 
   Calendar,
   IndianRupee,
   Clock,
   CheckCircle,
-  AlertCircle,
   TrendingUp,
   BarChart3,
-  AlertTriangle
+  AlertTriangle,
+  Plus,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,13 +20,21 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Member, FeeRecord, AttendanceRecord } from '@/types/library';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { ref, update } from 'firebase/database';
 import { database, auth } from '@/lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
+import { cn } from '@/lib/utils';
 
 interface MemberDetailModalProps {
   member: Member | null;
@@ -34,7 +42,13 @@ interface MemberDetailModalProps {
   onOpenChange: (open: boolean) => void;
   memberDues: FeeRecord[];
   memberAttendance: AttendanceRecord[];
-  onMarkAsPaid?: (dueId: string, memberId: string, memberName: string, amount: number, periodEnd: string) => Promise<string>;
+  onRecordPayment?: (payment: {
+    memberId: string;
+    memberName: string;
+    periodStart: string;
+    periodEnd: string;
+    amount: number;
+  }) => Promise<string>;
 }
 
 const MemberDetailModal = ({ 
@@ -43,7 +57,7 @@ const MemberDetailModal = ({
   onOpenChange,
   memberDues,
   memberAttendance,
-  onMarkAsPaid
+  onRecordPayment
 }: MemberDetailModalProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -53,11 +67,22 @@ const MemberDetailModal = ({
     phone: '',
     address: '',
     seatNumber: '',
+    lockerNumber: '',
     monthlyFee: 500,
   });
   const [currentMonth] = useState(new Date());
   const [sendingReset, setSendingReset] = useState(false);
-  const [payingDueId, setPayingDueId] = useState<string | null>(null);
+  
+  // Add payment dialog state
+  const [showAddPaymentDialog, setShowAddPaymentDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [newPayment, setNewPayment] = useState({
+    periodStart: undefined as Date | undefined,
+    periodEnd: undefined as Date | undefined,
+    amount: '',
+  });
+  const [isRecording, setIsRecording] = useState(false);
 
   // Calendar data
   const monthStart = startOfMonth(currentMonth);
@@ -97,19 +122,14 @@ const MemberDetailModal = ({
       ? Math.round(sessionsWithDuration.reduce((sum, a) => sum + (a.duration || 0), 0) / sessionsWithDuration.length)
       : 0;
     
-    const pendingFees = memberDues.filter(d => d.status === 'pending' || d.status === 'overdue');
-    const paidFees = memberDues.filter(d => d.status === 'paid');
-    const totalPending = pendingFees.reduce((sum, d) => sum + d.amount, 0);
-    const totalPaid = paidFees.reduce((sum, d) => sum + d.amount, 0);
+    const totalPaid = memberDues.reduce((sum, d) => sum + d.amount, 0);
 
     return {
       totalDaysPresent,
       thisMonthDays,
       avgDuration,
-      pendingFees: pendingFees.length,
-      totalPending,
       totalPaid,
-      paidFees: paidFees.length,
+      totalPayments: memberDues.length,
     };
   }, [memberAttendance, memberDues, currentMonth]);
 
@@ -121,6 +141,7 @@ const MemberDetailModal = ({
       phone: member.phone,
       address: member.address || '',
       seatNumber: member.seatNumber || '',
+      lockerNumber: member.lockerNumber || '',
       monthlyFee: member.monthlyFee,
     });
     setIsEditing(true);
@@ -131,15 +152,13 @@ const MemberDetailModal = ({
 
     setIsSaving(true);
     try {
-      // IMPORTANT: Updating another user's Firebase Auth email/password from the client is not reliable/secure.
-      // We only update the member profile fields in the database, and use password-reset email for credential changes.
       const memberRef = ref(database, `members/${member.id}`);
       await update(memberRef, {
-        // keep email editable for profile/reference, but it does not guarantee Auth email changes
         email: editData.email,
         phone: editData.phone,
         address: editData.address,
         seatNumber: editData.seatNumber,
+        lockerNumber: editData.lockerNumber,
         monthlyFee: editData.monthlyFee,
       });
 
@@ -167,16 +186,49 @@ const MemberDetailModal = ({
     }
   };
 
-  const handlePayDue = async (due: FeeRecord) => {
-    if (!member || !onMarkAsPaid) return;
-    setPayingDueId(due.id);
+  const handleOpenAddPayment = () => {
+    setNewPayment({
+      periodStart: undefined,
+      periodEnd: undefined,
+      amount: member?.monthlyFee?.toString() || '',
+    });
+    setShowAddPaymentDialog(true);
+  };
+
+  const handleProceedToConfirm = () => {
+    if (!newPayment.periodStart || !newPayment.periodEnd || !newPayment.amount) {
+      toast.error('Please fill all fields');
+      return;
+    }
+    setPasswordInput('');
+    setShowPasswordDialog(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (passwordInput !== '8090') {
+      toast.error('Incorrect password');
+      return;
+    }
+
+    if (!member || !onRecordPayment || !newPayment.periodStart || !newPayment.periodEnd) return;
+    
+    setIsRecording(true);
     try {
-      const receiptNumber = await onMarkAsPaid(due.id, member.id, member.name, due.amount, due.periodEnd);
+      const receiptNumber = await onRecordPayment({
+        memberId: member.id,
+        memberName: member.name,
+        periodStart: format(newPayment.periodStart, 'yyyy-MM-dd'),
+        periodEnd: format(newPayment.periodEnd, 'yyyy-MM-dd'),
+        amount: Number(newPayment.amount),
+      });
       toast.success(`Payment recorded! Receipt: ${receiptNumber}`);
+      setShowPasswordDialog(false);
+      setShowAddPaymentDialog(false);
+      setPasswordInput('');
     } catch (error: any) {
       toast.error(error.message || 'Failed to record payment');
     } finally {
-      setPayingDueId(null);
+      setIsRecording(false);
     }
   };
 
@@ -227,14 +279,13 @@ const MemberDetailModal = ({
             </div>
           </div>
 
-          {/* Profile Details */}
           {/* Credential note */}
           {isEditing && (
             <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg text-sm text-warning">
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
                 <p>
-                  Member login password can’t be changed securely from the admin panel in this build.
+                  Member login password can't be changed securely from the admin panel in this build.
                   Use <span className="font-medium">Reset Password</span> to send a reset link.
                 </p>
                 <Button
@@ -251,8 +302,9 @@ const MemberDetailModal = ({
             </div>
           )}
 
+          {/* Profile Details */}
           <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
+            <div className="space-y-2">
               <Label>Email</Label>
               <p className="p-2 bg-secondary/30 rounded-lg">{member.email}</p>
               {isEditing && (
@@ -286,6 +338,17 @@ const MemberDetailModal = ({
                 />
               ) : (
                 <p className="p-2 bg-secondary/30 rounded-lg">{member.seatNumber || 'N/A'}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Locker Number</Label>
+              {isEditing ? (
+                <Input
+                  value={editData.lockerNumber}
+                  onChange={(e) => setEditData({ ...editData, lockerNumber: e.target.value })}
+                />
+              ) : (
+                <p className="p-2 bg-secondary/30 rounded-lg">{member.lockerNumber || 'N/A'}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -334,16 +397,16 @@ const MemberDetailModal = ({
             <div className="stat-card">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-4 h-4 text-success" />
-                <span className="text-sm text-muted-foreground">Fees Paid</span>
+                <span className="text-sm text-muted-foreground">Total Paid</span>
               </div>
               <p className="text-2xl font-bold text-success">₹{stats.totalPaid}</p>
             </div>
             <div className="stat-card">
               <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="w-4 h-4 text-warning" />
-                <span className="text-sm text-muted-foreground">Pending</span>
+                <IndianRupee className="w-4 h-4 text-primary" />
+                <span className="text-sm text-muted-foreground">Payments</span>
               </div>
-              <p className="text-2xl font-bold text-warning">₹{stats.totalPending}</p>
+              <p className="text-2xl font-bold text-foreground">{stats.totalPayments}</p>
             </div>
           </div>
 
@@ -392,13 +455,21 @@ const MemberDetailModal = ({
 
           {/* Fee History */}
           <div className="p-4 bg-secondary/30 rounded-xl">
-            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <IndianRupee className="w-5 h-5" />
-              Fee History
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <IndianRupee className="w-5 h-5" />
+                Payment History
+              </h3>
+              {onRecordPayment && (
+                <Button size="sm" onClick={handleOpenAddPayment} className="gap-1">
+                  <Plus className="w-4 h-4" />
+                  Add Payment
+                </Button>
+              )}
+            </div>
 
             {memberDues.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No fee records</p>
+              <p className="text-muted-foreground text-center py-4">No payment records</p>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {memberDues.map((due) => (
@@ -413,37 +484,144 @@ const MemberDetailModal = ({
                           : 'Period not set'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Due: {due.dueDate && safeParseISO(due.dueDate) ? format(parseISO(due.dueDate), 'dd MMM yyyy') : 'Not set'}
+                        {due.receiptNumber} • {due.paidDate && safeParseISO(due.paidDate) ? format(parseISO(due.paidDate), 'dd MMM yyyy') : ''}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">₹{due.amount}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        due.status === 'paid' 
-                          ? 'bg-success/10 text-success'
-                          : due.status === 'overdue'
-                            ? 'bg-destructive/10 text-destructive'
-                            : 'bg-warning/10 text-warning'
-                      }`}>
-                        {due.status}
-                      </span>
+                    <div className="text-right flex items-center gap-2">
+                      <p className="font-semibold text-success">₹{due.amount}</p>
+                      <CheckCircle className="w-4 h-4 text-success" />
                     </div>
-                    {(due.status === 'pending' || due.status === 'overdue') && onMarkAsPaid && (
-                      <Button
-                        size="sm"
-                        className="btn-primary"
-                        disabled={payingDueId === due.id}
-                        onClick={() => handlePayDue(due)}
-                      >
-                        {payingDueId === due.id ? 'Paying...' : 'Pay'}
-                      </Button>
-                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
         </div>
+
+        {/* Add Payment Dialog */}
+        <Dialog open={showAddPaymentDialog} onOpenChange={setShowAddPaymentDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-display flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                Record Payment for {member.name}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="py-4 space-y-4">
+              {/* Period Start Date */}
+              <div className="space-y-2">
+                <Label>Period Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newPayment.periodStart && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newPayment.periodStart ? format(newPayment.periodStart, "PPP") : "Pick start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={newPayment.periodStart}
+                      onSelect={(date) => setNewPayment({ ...newPayment, periodStart: date })}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Period End Date */}
+              <div className="space-y-2">
+                <Label>Period End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newPayment.periodEnd && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newPayment.periodEnd ? format(newPayment.periodEnd, "PPP") : "Pick end date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={newPayment.periodEnd}
+                      onSelect={(date) => setNewPayment({ ...newPayment, periodEnd: date })}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label>Amount (₹)</Label>
+                <Input
+                  type="number"
+                  placeholder="Enter amount"
+                  value={newPayment.amount}
+                  onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddPaymentDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleProceedToConfirm} className="btn-primary">
+                Record Payment
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Password Confirmation Dialog */}
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent className="max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="font-display">Confirm Payment</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              {newPayment.periodStart && newPayment.periodEnd && (
+                <div className="p-3 bg-secondary/50 rounded-lg space-y-1 text-sm">
+                  <p><span className="text-muted-foreground">Period:</span> {format(newPayment.periodStart, 'dd MMM yyyy')} - {format(newPayment.periodEnd, 'dd MMM yyyy')}</p>
+                  <p><span className="text-muted-foreground">Amount:</span> <span className="font-semibold text-success">₹{newPayment.amount}</span></p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  placeholder="Enter password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleConfirmPayment()}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmPayment} className="btn-primary" disabled={isRecording}>
+                {isRecording ? 'Recording...' : 'Confirm Payment'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

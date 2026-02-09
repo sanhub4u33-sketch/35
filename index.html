@@ -2,25 +2,94 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Lovable App</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Primary SEO -->
+    <title>Shri Hanumant Library Mahmudabad | 24/7 Digital Library & Study Center</title>
+    <meta name="description" content="Shri Hanumant Library - Mahmudabad's first digital library. 24/7 access, personal lockers, high-speed WiFi, AC environment. Best library for UPSC, SSC, Bank PO preparation in Mahmudabad, Sitapur, UP." />
+    <meta name="keywords" content="Shri Hanumant Library, Mahmudabad library, digital library Mahmudabad, study center Mahmudabad, 24 hours library Sitapur, UPSC preparation Mahmudabad, SSC coaching library, reading room Mahmudabad, best library UP, Shri Hanumant Library Mahmudabad" />
+    <meta name="author" content="Shri Hanumant Library" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://shrihanumantlibrary.in" />
+    
+    <!-- Local Business Schema -->
+    <meta name="geo.region" content="IN-UP" />
+    <meta name="geo.placename" content="Mahmudabad, Sitapur, Uttar Pradesh" />
+    <meta name="geo.position" content="27.291;81.115" />
+    <meta name="ICBM" content="27.291, 81.115" />
 
-    <!-- TODO: Update og:title to match your application name -->
-    <meta property="og:title" content="Lovable App" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <!-- Open Graph -->
+    <meta property="og:title" content="Shri Hanumant Library Mahmudabad | 24/7 Digital Library" />
+    <meta property="og:description" content="Mahmudabad's first digital library with 24/7 access, personal lockers, high-speed WiFi. Perfect for UPSC, SSC, Bank PO preparation." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://shrihanumantlibrary.in" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:site_name" content="Shri Hanumant Library" />
 
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:title" content="Shri Hanumant Library Mahmudabad | 24/7 Digital Library" />
+    <meta name="twitter:description" content="Mahmudabad's first digital library with 24/7 access, personal lockers, high-speed WiFi." />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+ 
+     <!-- PWA Meta Tags -->
+     <link rel="manifest" href="/manifest.json" />
+     <meta name="theme-color" content="#f97316" />
+     <meta name="apple-mobile-web-app-capable" content="yes" />
+     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+     <meta name="apple-mobile-web-app-title" content="Library" />
+     <link rel="apple-touch-icon" href="/icons/library-logo.png" />
+     <link rel="icon" type="image/png" href="/icons/library-logo.png" />
+
+    <!-- JSON-LD Structured Data for Local Business -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Library",
+      "name": "Shri Hanumant Library",
+      "alternateName": "Shri Hanumant Library Mahmudabad",
+      "description": "Mahmudabad's first digital library offering 24/7 access, personal lockers, high-speed WiFi, and AC environment for students preparing for UPSC, SSC, Bank PO exams.",
+      "url": "https://shrihanumantlibrary.in",
+      "telephone": "+91-7991304874",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "74XH+3HW, Ramuvapur",
+        "addressLocality": "Mahmudabad",
+        "addressRegion": "Uttar Pradesh",
+        "postalCode": "261203",
+        "addressCountry": "IN"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 27.291,
+        "longitude": 81.115
+      },
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "priceRange": "₹250-₹500",
+      "image": "https://lovable.dev/opengraph-image-p98pqg.png",
+      "sameAs": []
+    }
+    </script>
   </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+     <script>
+       // Register service worker
+       if ('serviceWorker' in navigator) {
+         window.addEventListener('load', () => {
+           navigator.serviceWorker.register('/sw.js')
+             .then(reg => console.log('SW registered'))
+             .catch(err => console.log('SW registration failed'));
+         });
+       }
+     </script>
   </body>
 </html>

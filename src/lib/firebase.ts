@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
@@ -14,6 +14,18 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// Use initializeAuth with IndexedDB persistence (primary) and localStorage (fallback)
+// IndexedDB works better in PWA standalone mode
+export const auth = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+});
+
+// Secondary app for creating new users without signing out the current user
+const secondaryApp = initializeApp(firebaseConfig, 'SecondaryApp');
+export const secondaryAuth = initializeAuth(secondaryApp, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+});
+
 export const database = getDatabase(app);
 export default app;

@@ -1,13 +1,12 @@
 import { useState, useMemo } from 'react';
 import { 
-  IndianRupee,
-  Plus,
   CheckCircle,
-  Clock,
-  AlertTriangle,
   Download,
   FileSpreadsheet,
-  FileText
+  FileText,
+  Plus,
+  IndianRupee,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -27,93 +26,110 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useMembers, useDues } from '@/hooks/useFirebaseData';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { useDues, useMembers } from '@/hooks/useFirebaseData';
 import { toast } from 'sonner';
 import { format, parseISO, subDays, subWeeks, subMonths, subYears, isAfter } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 type ExportPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 const DuesPage = () => {
+  const { dues, loading, recordPayment } = useDues();
   const { members } = useMembers();
-  const { dues, loading, markAsPaid, createInitialFee } = useDues();
-  const [showAddDialog, setShowAddDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showAddPaymentDialog, setShowAddPaymentDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>('monthly');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [formData, setFormData] = useState({
+
+  // New payment form state
+  const [newPayment, setNewPayment] = useState({
     memberId: '',
-    periodStart: format(new Date(), 'yyyy-MM-dd'),
-    periodEnd: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    amount: 500,
+    periodStart: undefined as Date | undefined,
+    periodEnd: undefined as Date | undefined,
+    amount: '',
+    paymentDate: undefined as Date | undefined,
   });
 
   const filteredDues = useMemo(() => {
     let filtered = dues;
 
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(due => due.status === filterStatus);
-    }
-
     if (searchQuery) {
       filtered = filtered.filter(due =>
-        due.memberName.toLowerCase().includes(searchQuery.toLowerCase())
+        due.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        due.receiptNumber?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    return filtered.sort((a, b) => {
-      if (a.status === 'overdue' && b.status !== 'overdue') return -1;
-      if (a.status !== 'overdue' && b.status === 'overdue') return 1;
-      if (a.status === 'pending' && b.status === 'paid') return -1;
-      if (a.status === 'paid' && b.status === 'pending') return 1;
-      return new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime();
-    });
-  }, [dues, filterStatus, searchQuery]);
+    return filtered;
+  }, [dues, searchQuery]);
 
   const stats = useMemo(() => {
-    const pending = dues.filter(d => d.status === 'pending');
-    const overdue = dues.filter(d => d.status === 'overdue');
-    const paid = dues.filter(d => d.status === 'paid');
-    const totalPending = pending.reduce((sum, d) => sum + d.amount, 0);
-    const totalOverdue = overdue.reduce((sum, d) => sum + d.amount, 0);
+    const totalPayments = dues.length;
+    const totalAmount = dues.reduce((sum, d) => sum + d.amount, 0);
+    const thisMonth = dues.filter(d => {
+      if (!d.paidDate) return false;
+      const paidMonth = d.paidDate.substring(0, 7);
+      const currentMonth = new Date().toISOString().substring(0, 7);
+      return paidMonth === currentMonth;
+    });
+    const thisMonthAmount = thisMonth.reduce((sum, d) => sum + d.amount, 0);
 
-    return { pending, overdue, paid, totalPending, totalOverdue };
+    return { totalPayments, totalAmount, thisMonthPayments: thisMonth.length, thisMonthAmount };
   }, [dues]);
 
-  const handleAddDue = async () => {
-    const member = members.find(m => m.id === formData.memberId);
-    if (!member) {
-      toast.error('Please select a member');
+  const selectedMember = members.find(m => m.id === newPayment.memberId);
+
+  const handleOpenAddPayment = () => {
+    setNewPayment({
+      memberId: '',
+      periodStart: undefined,
+      periodEnd: undefined,
+      amount: '',
+      paymentDate: new Date(), // Default to today
+    });
+    setShowAddPaymentDialog(true);
+  };
+
+  const handleProceedToConfirm = () => {
+    if (!newPayment.memberId || !newPayment.periodStart || !newPayment.periodEnd || !newPayment.amount || !newPayment.paymentDate) {
+      toast.error('Please fill all fields');
+      return;
+    }
+    setPasswordInput('');
+    setShowPasswordDialog(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (passwordInput !== '8090') {
+      toast.error('Incorrect password');
       return;
     }
 
-    try {
-      await createInitialFee(
-        formData.memberId,
-        member.name,
-        formData.amount,
-        formData.periodStart
-      );
+    if (!selectedMember || !newPayment.periodStart || !newPayment.periodEnd || !newPayment.paymentDate) return;
 
-      toast.success('Fee added successfully');
-      setShowAddDialog(false);
-      setFormData({
-        memberId: '',
-        periodStart: format(new Date(), 'yyyy-MM-dd'),
-        periodEnd: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-        amount: 500,
+    try {
+      const receiptNumber = await recordPayment({
+        memberId: selectedMember.id,
+        memberName: selectedMember.name,
+        periodStart: format(newPayment.periodStart, 'yyyy-MM-dd'),
+        periodEnd: format(newPayment.periodEnd, 'yyyy-MM-dd'),
+        amount: Number(newPayment.amount),
+        paymentDate: format(newPayment.paymentDate, 'yyyy-MM-dd'),
       });
-    } catch (error) {
-      toast.error('Failed to add fee');
-    }
-  };
-
-  const handleMarkPaid = async (dueId: string, memberId: string, memberName: string, amount: number, periodEnd: string) => {
-    try {
-      const receiptNumber = await markAsPaid(dueId, memberId, memberName, amount, periodEnd);
       toast.success(`Payment recorded. Receipt: ${receiptNumber}`);
+      setShowPasswordDialog(false);
+      setShowAddPaymentDialog(false);
+      setPasswordInput('');
     } catch (error) {
-      toast.error('Failed to mark as paid');
+      toast.error('Failed to record payment');
     }
   };
 
@@ -138,7 +154,6 @@ const DuesPage = () => {
     }
 
     return dues.filter(due => 
-      due.status === 'paid' && 
       due.paidDate && 
       isAfter(parseISO(due.paidDate), startDate)
     );
@@ -178,7 +193,7 @@ const DuesPage = () => {
     setShowExportDialog(false);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     const now = new Date();
     const paidInPeriod = getFilteredTransactions(exportPeriod);
 
@@ -187,229 +202,192 @@ const DuesPage = () => {
       return;
     }
 
-    // Ensure numeric addition by converting to Number
     const totalAmount = paidInPeriod.reduce((sum, due) => sum + Number(due.amount), 0);
     const periodLabel = exportPeriod.charAt(0).toUpperCase() + exportPeriod.slice(1);
 
-    // Open new window and write content for printing
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Please allow popups to export PDF');
-      return;
-    }
+    const { default: jsPDF } = await import('jspdf');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 15;
+    let yPos = 20;
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Fee Transactions - ${periodLabel} Report</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: Arial, sans-serif; 
-            padding: 40px; 
-            max-width: 800px; 
-            margin: 0 auto;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          .header { 
-            text-align: center; 
-            border-bottom: 3px solid #f97316; 
-            padding-bottom: 20px; 
-            margin-bottom: 30px;
-          }
-          .header h1 { 
-            color: #f97316; 
-            font-size: 28px;
-            margin-bottom: 5px;
-          }
-          .header p { color: #666; font-size: 14px; }
-          .meta { color: #666; margin-bottom: 20px; font-size: 14px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 12px 8px; text-align: left; font-size: 14px; }
-          th { background-color: #f97316; color: white; font-weight: 600; }
-          tr:nth-child(even) { background-color: #fafafa; }
-          .total { 
-            margin-top: 20px; 
-            font-size: 18px; 
-            font-weight: bold;
-            padding: 15px;
-            background: #fff7ed;
-            border-radius: 8px;
-          }
-          .footer { 
-            margin-top: 30px; 
-            color: #888; 
-            font-size: 12px; 
-            text-align: center;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-          }
-          @media print {
-            body { padding: 20px; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Shri Hanumant Library</h1>
-          <p>74XH+3HW, Ramuvapur, Mahmudabad, UP 261203</p>
-          <p>Phone: +91 79913 04874</p>
-        </div>
-        
-        <h2 style="margin-bottom: 10px;">Fee Transactions Report</h2>
-        <p class="meta">Period: ${periodLabel} | Generated: ${format(now, 'dd MMM yyyy, hh:mm a')}</p>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Receipt No</th>
-              <th>Member Name</th>
-              <th>Period</th>
-              <th>Amount</th>
-              <th>Paid Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${paidInPeriod.map(due => `
-              <tr>
-                <td>${due.receiptNumber || '-'}</td>
-                <td>${due.memberName}</td>
-                <td>${due.periodStart && due.periodEnd 
-                  ? `${format(parseISO(due.periodStart), 'dd MMM')} - ${format(parseISO(due.periodEnd), 'dd MMM yyyy')}`
-                  : 'N/A'}</td>
-                <td>Rs. ${Number(due.amount).toLocaleString('en-IN')}</td>
-                <td>${due.paidDate ? format(parseISO(due.paidDate), 'dd MMM yyyy') : '-'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        
-        <p class="total">Total: Rs. ${totalAmount.toLocaleString('en-IN')} (${paidInPeriod.length} transactions)</p>
-        
-        <p class="footer">This is a computer-generated report.</p>
-        
-        <script>
-          window.onload = function() { 
-            setTimeout(function() { window.print(); }, 500);
-          };
-        </script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
+    // Header
+    pdf.setFontSize(20);
+    pdf.setTextColor(249, 115, 22);
+    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 7;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(102, 102, 102);
+    pdf.text('74XH+3HW, Ramuvapur, Mahmudabad, UP 261203', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.text('Phone: +91 79913 04874', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+
+    // Orange line
+    pdf.setDrawColor(249, 115, 22);
+    pdf.setLineWidth(0.8);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 12;
+
+    // Title
+    pdf.setFontSize(14);
+    pdf.setTextColor(51, 51, 51);
+    pdf.text(`Fee Transactions Report - ${periodLabel}`, margin, yPos);
+    yPos += 6;
+    pdf.setFontSize(10);
+    pdf.setTextColor(102, 102, 102);
+    pdf.text(`Generated: ${format(now, 'dd MMM yyyy, hh:mm a')}`, margin, yPos);
+    yPos += 12;
+
+    // Table Header
+    const colWidths = [30, 45, 40, 35, 30];
+    const headers = ['Receipt No', 'Member', 'Period', 'Amount', 'Paid Date'];
     
-    toast.success(`${periodLabel} report opened. Use browser's "Save as PDF" in print dialog.`);
-    setShowExportDialog(false);
-  };
+    pdf.setFillColor(249, 115, 22);
+    pdf.rect(margin, yPos - 5, pageWidth - 2 * margin, 10, 'F');
+    pdf.setFontSize(10);
+    pdf.setTextColor(255, 255, 255);
+    
+    let xPos = margin + 3;
+    headers.forEach((header, i) => {
+      pdf.text(header, xPos, yPos + 1);
+      xPos += colWidths[i];
+    });
+    yPos += 10;
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'paid': return <CheckCircle className="w-4 h-4 text-success" />;
-      case 'pending': return <Clock className="w-4 h-4 text-warning" />;
-      case 'overdue': return <AlertTriangle className="w-4 h-4 text-destructive" />;
-      default: return null;
-    }
+    // Table Rows
+    pdf.setTextColor(51, 51, 51);
+    paidInPeriod.forEach((due, index) => {
+      if (yPos > 260) {
+        pdf.addPage();
+        yPos = 20;
+      }
+
+      if (index % 2 === 0) {
+        pdf.setFillColor(250, 250, 250);
+        pdf.rect(margin, yPos - 5, pageWidth - 2 * margin, 8, 'F');
+      }
+
+      xPos = margin + 3;
+      pdf.setFontSize(9);
+      pdf.text(due.receiptNumber || '-', xPos, yPos);
+      xPos += colWidths[0];
+      pdf.text(due.memberName.slice(0, 18), xPos, yPos);
+      xPos += colWidths[1];
+      const periodText = due.periodStart && due.periodEnd 
+        ? `${format(parseISO(due.periodStart), 'dd MMM')} - ${format(parseISO(due.periodEnd), 'dd MMM')}`
+        : 'N/A';
+      pdf.text(periodText, xPos, yPos);
+      xPos += colWidths[2];
+      pdf.text(`Rs. ${Number(due.amount).toLocaleString('en-IN')}`, xPos, yPos);
+      xPos += colWidths[3];
+      pdf.text(due.paidDate ? format(parseISO(due.paidDate), 'dd MMM yyyy') : '-', xPos, yPos);
+      
+      yPos += 8;
+    });
+
+    // Total
+    yPos += 5;
+    pdf.setFillColor(255, 247, 237);
+    pdf.rect(margin, yPos - 5, pageWidth - 2 * margin, 12, 'F');
+    pdf.setFontSize(12);
+    pdf.setTextColor(51, 51, 51);
+    pdf.text(`Total: Rs. ${totalAmount.toLocaleString('en-IN')} (${paidInPeriod.length} transactions)`, margin + 5, yPos + 2);
+    yPos += 15;
+
+    // Footer
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 8;
+    pdf.setFontSize(9);
+    pdf.setTextColor(136, 136, 136);
+    pdf.text('This is a computer-generated report.', pageWidth / 2, yPos, { align: 'center' });
+
+    // Save PDF directly
+    pdf.save(`fee_transactions_${exportPeriod}_${format(now, 'yyyy-MM-dd')}.pdf`);
+    toast.success(`${periodLabel} PDF report downloaded`);
+    setShowExportDialog(false);
   };
 
   return (
     <AdminLayout 
       title="Fee Management" 
-      searchPlaceholder="Search member..."
+      searchPlaceholder="Search member or receipt..."
       onSearch={setSearchQuery}
     >
       {/* Stats */}
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
         <div className="stat-card">
           <div className="flex items-center gap-3 mb-2">
-            <Clock className="w-5 h-5 text-warning" />
-            <span className="text-muted-foreground">Pending</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{stats.pending.length}</p>
-          <p className="text-sm text-warning">₹{stats.totalPending.toLocaleString()}</p>
-        </div>
-
-        <div className="stat-card">
-          <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="w-5 h-5 text-destructive" />
-            <span className="text-muted-foreground">Overdue</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{stats.overdue.length}</p>
-          <p className="text-sm text-destructive">₹{stats.totalOverdue.toLocaleString()}</p>
-        </div>
-
-        <div className="stat-card">
-          <div className="flex items-center gap-3 mb-2">
             <CheckCircle className="w-5 h-5 text-success" />
-            <span className="text-muted-foreground">Paid</span>
+            <span className="text-muted-foreground">Total Payments</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{stats.paid.length}</p>
+          <p className="text-2xl font-bold text-foreground">{stats.totalPayments}</p>
+          <p className="text-sm text-success">₹{stats.totalAmount.toLocaleString()}</p>
+        </div>
+
+        <div className="stat-card">
+          <div className="flex items-center gap-3 mb-2">
+            <IndianRupee className="w-5 h-5 text-primary" />
+            <span className="text-muted-foreground">This Month</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{stats.thisMonthPayments}</p>
+          <p className="text-sm text-primary">₹{stats.thisMonthAmount.toLocaleString()}</p>
+        </div>
+
+        <div className="stat-card flex items-center justify-center">
+          <Button onClick={handleOpenAddPayment} className="btn-primary gap-2">
+            <Plus className="w-5 h-5" />
+            Record Payment
+          </Button>
         </div>
       </div>
 
-      {/* Filters and Actions */}
+      {/* Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setShowExportDialog(true)} 
-            className="gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
-          <Button onClick={() => setShowAddDialog(true)} className="btn-primary gap-2">
-            <Plus className="w-4 h-4" />
-            Add Fee
-          </Button>
-        </div>
+        <h3 className="text-lg font-semibold text-foreground">Payment History</h3>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowExportDialog(true)} 
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export
+        </Button>
       </div>
 
-      {/* Dues List */}
+      {/* Payments List */}
       <div className="card-elevated overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
+                <th className="text-left p-4 font-medium text-muted-foreground">Receipt No</th>
                 <th className="text-left p-4 font-medium text-muted-foreground">Member</th>
                 <th className="text-left p-4 font-medium text-muted-foreground">Period</th>
                 <th className="text-left p-4 font-medium text-muted-foreground">Amount</th>
-                <th className="text-left p-4 font-medium text-muted-foreground">Due Date</th>
-                <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-                <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
+                <th className="text-left p-4 font-medium text-muted-foreground">Paid Date</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
                     Loading...
                   </td>
                 </tr>
               ) : filteredDues.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                    No fees found
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                    No payments recorded yet
                   </td>
                 </tr>
               ) : (
                 filteredDues.map((due) => (
                   <tr key={due.id} className="border-b border-border hover:bg-secondary/30">
+                    <td className="p-4 font-mono text-sm">{due.receiptNumber || '-'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-medium">
@@ -423,37 +401,8 @@ const DuesPage = () => {
                         ? `${format(parseISO(due.periodStart), 'dd MMM')} - ${format(parseISO(due.periodEnd), 'dd MMM yyyy')}`
                         : 'Period not set'}
                     </td>
-                    <td className="p-4 font-semibold">₹{due.amount}</td>
-                    <td className="p-4">{due.dueDate ? format(parseISO(due.dueDate), 'dd MMM yyyy') : 'Not set'}</td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(due.status)}
-                        <span className={`capitalize ${
-                          due.status === 'paid' ? 'text-success' :
-                          due.status === 'overdue' ? 'text-destructive' :
-                          'text-warning'
-                        }`}>
-                          {due.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      {due.status !== 'paid' && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleMarkPaid(due.id, due.memberId, due.memberName, due.amount, due.periodEnd)}
-                          className="gap-1"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Mark Paid
-                        </Button>
-                      )}
-                      {due.status === 'paid' && due.receiptNumber && (
-                        <span className="text-sm text-muted-foreground">
-                          {due.receiptNumber}
-                        </span>
-                      )}
-                    </td>
+                    <td className="p-4 font-semibold text-success">₹{due.amount}</td>
+                    <td className="p-4">{due.paidDate ? format(parseISO(due.paidDate), 'dd MMM yyyy') : '-'}</td>
                   </tr>
                 ))
               )}
@@ -462,32 +411,26 @@ const DuesPage = () => {
         </div>
       </div>
 
-      {/* Add Due Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      {/* Add Payment Dialog */}
+      <Dialog open={showAddPaymentDialog} onOpenChange={setShowAddPaymentDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">Add New Fee</DialogTitle>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              Record New Payment
+            </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="py-4 space-y-4">
+            {/* Member Selection */}
             <div className="space-y-2">
-              <Label>Member</Label>
-              <Select 
-                value={formData.memberId} 
-                onValueChange={(value) => {
-                  const member = members.find(m => m.id === value);
-                  setFormData({ 
-                    ...formData, 
-                    memberId: value,
-                    amount: member?.monthlyFee || 500
-                  });
-                }}
-              >
+              <Label>Select Member</Label>
+              <Select value={newPayment.memberId} onValueChange={(v) => setNewPayment({ ...newPayment, memberId: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select member" />
+                  <SelectValue placeholder="Choose a member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {members.map((member) => (
+                  {members.filter(m => m.status === 'active').map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
                     </SelectItem>
@@ -496,50 +439,114 @@ const DuesPage = () => {
               </Select>
             </div>
 
+            {/* Period Start Date */}
             <div className="space-y-2">
               <Label>Period Start Date</Label>
-              <Input
-                type="date"
-                value={formData.periodStart}
-                onChange={(e) => {
-                  const start = e.target.value;
-                  const endDate = new Date(start);
-                  endDate.setDate(endDate.getDate() + 30);
-                  setFormData({ 
-                    ...formData, 
-                    periodStart: start,
-                    periodEnd: format(endDate, 'yyyy-MM-dd')
-                  });
-                }}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !newPayment.periodStart && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newPayment.periodStart ? format(newPayment.periodStart, "PPP") : "Pick start date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={newPayment.periodStart}
+                    onSelect={(date) => setNewPayment({ ...newPayment, periodStart: date })}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
+            {/* Period End Date */}
             <div className="space-y-2">
-              <Label>Period End Date (30 days)</Label>
-              <Input
-                type="date"
-                value={formData.periodEnd}
-                disabled
-                className="bg-secondary/50"
-              />
+              <Label>Period End Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !newPayment.periodEnd && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newPayment.periodEnd ? format(newPayment.periodEnd, "PPP") : "Pick end date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={newPayment.periodEnd}
+                    onSelect={(date) => setNewPayment({ ...newPayment, periodEnd: date })}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
+            {/* Amount */}
             <div className="space-y-2">
               <Label>Amount (₹)</Label>
               <Input
                 type="number"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                placeholder="Enter amount"
+                value={newPayment.amount}
+                onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
               />
+            </div>
+
+            {selectedMember && (
+              <p className="text-sm text-muted-foreground">
+                Default monthly fee: ₹{selectedMember.monthlyFee}
+              </p>
+            )}
+
+            {/* Payment Date */}
+            <div className="space-y-2">
+              <Label>Payment Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !newPayment.paymentDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newPayment.paymentDate ? format(newPayment.paymentDate, "PPP") : "Select payment date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={newPayment.paymentDate}
+                    onSelect={(date) => setNewPayment({ ...newPayment, paymentDate: date })}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+            <Button variant="outline" onClick={() => setShowAddPaymentDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddDue} className="btn-primary">
-              Add Fee
+            <Button onClick={handleProceedToConfirm} className="btn-primary">
+              Record Payment
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -570,7 +577,7 @@ const DuesPage = () => {
             </div>
             
             <p className="text-sm text-muted-foreground">
-              {getFilteredTransactions(exportPeriod).length} paid transaction{getFilteredTransactions(exportPeriod).length !== 1 ? 's' : ''} in this period
+              {getFilteredTransactions(exportPeriod).length} transaction{getFilteredTransactions(exportPeriod).length !== 1 ? 's' : ''} in this period
             </p>
             
             {/* Format Selection */}
@@ -598,6 +605,46 @@ const DuesPage = () => {
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Confirmation Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display">Confirm Payment</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            {selectedMember && newPayment.periodStart && newPayment.periodEnd && newPayment.paymentDate && (
+              <div className="p-3 bg-secondary/50 rounded-lg space-y-1 text-sm">
+                <p><span className="text-muted-foreground">Member:</span> <span className="font-semibold">{selectedMember.name}</span></p>
+                <p><span className="text-muted-foreground">Period:</span> {format(newPayment.periodStart, 'dd MMM yyyy')} - {format(newPayment.periodEnd, 'dd MMM yyyy')}</p>
+                <p><span className="text-muted-foreground">Amount:</span> <span className="font-semibold text-success">₹{newPayment.amount}</span></p>
+                <p><span className="text-muted-foreground">Payment Date:</span> {format(newPayment.paymentDate, 'dd MMM yyyy')}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="payment-password">Enter Password</Label>
+              <Input
+                id="payment-password"
+                type="password"
+                placeholder="Enter password to confirm"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleConfirmPayment()}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmPayment} className="btn-primary">
+              Confirm Payment
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AdminLayout>

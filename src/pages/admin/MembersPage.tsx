@@ -28,13 +28,13 @@ import { useMembers, useDues, useAttendance } from '@/hooks/useFirebaseData';
 import { Member } from '@/types/library';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { secondaryAuth } from '@/lib/firebase';
 import MemberDetailModal from '@/components/admin/MemberDetailModal';
 
 const MembersPage = () => {
   const { members, loading, addMember, deleteMember } = useMembers();
-  const { dues, createInitialFee, getMemberDues, markAsPaid } = useDues();
+  const { getMemberDues, recordPayment } = useDues();
   const { getMemberAttendance } = useAttendance();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -47,8 +47,10 @@ const MembersPage = () => {
     phone: '',
     address: '',
     seatNumber: '',
+    lockerNumber: '',
     shift: 'morning',
     monthlyFee: 500,
+    joinDate: format(new Date(), 'yyyy-MM-dd'),
   });
 
   const filteredMembers = members.filter(member =>
@@ -65,36 +67,36 @@ const MembersPage = () => {
       phone: '',
       address: '',
       seatNumber: '',
+      lockerNumber: '',
       shift: 'morning',
       monthlyFee: 500,
+      joinDate: format(new Date(), 'yyyy-MM-dd'),
     });
   };
 
   const handleAddMember = async () => {
     try {
-      // Store current admin user before creating member
-      const currentAdmin = auth.currentUser;
-      const adminEmail = currentAdmin?.email;
-
-      // Create Firebase Auth user for the new member
+      // Create Firebase Auth user for the new member using secondary auth
+      // This prevents signing out the current admin
       await createUserWithEmailAndPassword(
-        auth, 
+        secondaryAuth, 
         formData.email, 
         formData.password
       );
 
-      // Sign out the newly created member (Firebase auto-signs in new users)
-      await auth.signOut();
+      // Sign out from secondary auth instance
+      await signOut(secondaryAuth);
 
-      const joinDate = new Date().toISOString().split('T')[0];
+      const joinDate = formData.joinDate;
 
       // Add member to database
-      const memberId = await addMember({
+      await addMember({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
         seatNumber: formData.seatNumber,
+        lockerNumber: formData.lockerNumber,
         shift: formData.shift,
         monthlyFee: formData.monthlyFee,
         status: 'active',
@@ -102,18 +104,7 @@ const MembersPage = () => {
         password: formData.password, // Store for admin to view/edit
       });
 
-      // Create initial fee for the member
-      if (memberId) {
-        await createInitialFee(
-          memberId,
-          formData.name,
-          formData.monthlyFee,
-          joinDate
-        );
-      }
-
       toast.success(`Member added! Login credentials:\nEmail: ${formData.email}\nPassword: ${formData.password}`);
-      toast.info('You have been signed out. Please log in again as admin.');
       setShowAddDialog(false);
       resetForm();
     } catch (error: any) {
@@ -302,21 +293,39 @@ const MembersPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Shift</Label>
-                <Select 
-                  value={formData.shift} 
-                  onValueChange={(value) => setFormData({ ...formData, shift: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="morning">Morning</SelectItem>
-                    <SelectItem value="evening">Evening</SelectItem>
-                    <SelectItem value="full-day">Full Day</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Locker Number</Label>
+                <Input
+                  placeholder="e.g., L-01"
+                  value={formData.lockerNumber}
+                  onChange={(e) => setFormData({ ...formData, lockerNumber: e.target.value })}
+                />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Join Date</Label>
+              <Input
+                type="date"
+                value={formData.joinDate}
+                onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Shift</Label>
+              <Select 
+                value={formData.shift} 
+                onValueChange={(value) => setFormData({ ...formData, shift: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="morning">Morning</SelectItem>
+                  <SelectItem value="evening">Evening</SelectItem>
+                  <SelectItem value="full-day">Full Day</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -348,7 +357,7 @@ const MembersPage = () => {
         onOpenChange={setShowDetailModal}
         memberDues={selectedMember ? getMemberDues(selectedMember.id) : []}
         memberAttendance={selectedMember ? getMemberAttendance(selectedMember.id) : []}
-        onMarkAsPaid={markAsPaid}
+        onRecordPayment={recordPayment}
       />
     </AdminLayout>
   );

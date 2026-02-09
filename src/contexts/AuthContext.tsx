@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { 
   User,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onIdTokenChanged
 } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
@@ -29,47 +29,107 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const initializedRef = useRef(false);
+
+  const determineUserRole = useCallback(async (currentUser: User): Promise<'admin' | 'user' | null> => {
+    try {
+      if (currentUser.email === 'owner@gmail.com') {
+        return 'admin';
+      }
+      const memberRef = ref(database, `members/${currentUser.uid}`);
+      const snapshot = await get(memberRef);
+      return snapshot.exists() ? 'user' : null;
+    } catch (error) {
+      console.error('Error determining user role:', error);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        // Check if user is admin (owner@gmail.com)
-        if (user.email === 'owner@gmail.com') {
-          setUserRole('admin');
+    let isMounted = true;
+
+    // INITIAL load – waits for Firebase to restore auth from persistence,
+    // then reads currentUser and resolves the role BEFORE setting loading to false.
+    const initializeAuth = async () => {
+      try {
+        const readyPromise =
+          typeof (auth as any).authStateReady === 'function'
+            ? (auth as any).authStateReady()
+            : new Promise<void>((resolve) => setTimeout(resolve, 1500));
+
+        // Safety timeout so the app never gets stuck loading
+        await Promise.race([
+          readyPromise,
+          new Promise<void>((resolve) => setTimeout(resolve, 12000)),
+        ]);
+
+        if (!isMounted) return;
+
+        // auth.currentUser is guaranteed to be populated after authStateReady
+        const currentUser = auth.currentUser;
+        setUser(currentUser);
+
+        if (currentUser) {
+          const role = await determineUserRole(currentUser);
+          if (isMounted) setUserRole(role);
         } else {
-          // Check if user exists in members
-          const memberRef = ref(database, `members/${user.uid}`);
-          const snapshot = await get(memberRef);
-          if (snapshot.exists()) {
-            setUserRole('user');
-          } else {
-            setUserRole(null);
-          }
+          setUserRole(null);
         }
+      } catch (error) {
+        console.error('Error during initial auth setup:', error);
+        if (isMounted) {
+          setUser(null);
+          setUserRole(null);
+        }
+      } finally {
+        if (isMounted) {
+          initializedRef.current = true;
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    // ONGOING listener – fires on sign-in / sign-out / token refresh AFTER init.
+    // Does NOT control isLoading.
+    const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
+      if (!isMounted || !initializedRef.current) return;
+      console.log('Auth state changed:', currentUser?.email || 'No user');
+      setUser(currentUser);
+
+      if (currentUser) {
+        determineUserRole(currentUser).then((role) => {
+          if (isMounted) setUserRole(role);
+        });
       } else {
         setUserRole(null);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [determineUserRole]);
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    await result.user.getIdToken(true);
+    console.log('Login successful, token refreshed');
   };
 
   const logout = async () => {
     await signOut(auth);
+    setUser(null);
     setUserRole(null);
   };
 
   const value = {
     user,
     userRole,
-    loading,
+    loading: isLoading,
     login,
     logout,
   };

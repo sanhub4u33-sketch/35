@@ -6,6 +6,7 @@ export interface Member {
   address?: string;
   joinDate: string;
   seatNumber?: string;
+  lockerNumber?: string; // locker assignment for the member
   shift?: string;
   monthlyFee: number;
   status: 'active' | 'inactive';
@@ -59,4 +60,35 @@ export interface Activity {
   memberName: string;
   timestamp: string;
   details?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: string;
+  type: 'text' | 'emoji' | 'gif';
+  roomId: string; // 'group' for group chat or sorted 'memberId1_memberId2' for private
+}
+
+export interface ChatRoom {
+  id: string;
+  type: 'group' | 'private';
+  participants?: string[]; // member IDs for private chats
+  lastMessage?: string;
+  lastMessageTime?: string;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  recipientId: string; // 'all' for broadcast or specific memberId
+  createdAt: string;
+  readBy?: { [memberId: string]: boolean };
+}
+
+export interface LibrarySettings {
+  chatEnabled: boolean;
 }
