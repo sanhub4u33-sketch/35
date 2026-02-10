@@ -257,10 +257,10 @@ const AttendancePage = () => {
       onSearch={setSearchQuery}
     >
       {/* View Mode and Filters */}
-      <div className="card-elevated p-4 mb-6">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="card-elevated p-3 sm:p-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-2 border border-border rounded-lg p-1">
+          <div className="flex items-center gap-2 border border-border rounded-lg p-1 self-start">
             <Button 
               variant={viewMode === 'day' ? 'default' : 'ghost'} 
               size="sm"
@@ -281,7 +281,7 @@ const AttendancePage = () => {
           {viewMode === 'day' && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2 min-w-[180px] justify-start">
+                <Button variant="outline" className="gap-2 w-full sm:w-auto sm:min-w-[180px] justify-start">
                   <CalendarIcon className="w-4 h-4" />
                   {format(selectedDate, 'dd MMM yyyy')}
                 </Button>
@@ -304,7 +304,7 @@ const AttendancePage = () => {
               <Button variant="outline" size="icon" onClick={handlePrevMonth}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <div className="px-4 py-2 bg-secondary rounded-lg min-w-[180px] text-center">
+              <div className="px-4 py-2 bg-secondary rounded-lg flex-1 sm:flex-none sm:min-w-[180px] text-center">
                 <span className="font-medium">{format(currentMonth, 'MMMM yyyy')}</span>
               </div>
               <Button variant="outline" size="icon" onClick={handleNextMonth}>
@@ -314,7 +314,7 @@ const AttendancePage = () => {
           )}
 
           {/* Member Filter */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="w-full sm:flex-1 sm:min-w-[200px]">
             <Select value={selectedMember} onValueChange={setSelectedMember}>
               <SelectTrigger>
                 <SelectValue placeholder="Select member" />
@@ -334,7 +334,7 @@ const AttendancePage = () => {
           <Button 
             variant="outline" 
             onClick={() => setShowExportDialog(true)} 
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto"
             disabled={filteredAttendance.length === 0}
           >
             <Download className="w-4 h-4" />
@@ -343,7 +343,7 @@ const AttendancePage = () => {
         </div>
 
         {/* Quick info */}
-        <div className="mt-4 text-sm text-muted-foreground">
+        <div className="mt-3 text-sm text-muted-foreground">
           {viewMode === 'day' 
             ? isToday(selectedDate) 
               ? "Today's attendance" 
@@ -355,34 +355,35 @@ const AttendancePage = () => {
 
       {/* Individual Member Calendar View (only in month mode) */}
       {viewMode === 'month' && selectedMember !== 'all' && selectedMemberData && (
-        <div className="card-elevated p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full hero-gradient flex items-center justify-center text-primary-foreground font-bold">
+        <div className="card-elevated p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full hero-gradient flex items-center justify-center text-primary-foreground font-bold text-sm sm:text-base">
                 {selectedMemberData.name.charAt(0)}
               </div>
               <div>
-                <h3 className="font-display text-xl font-semibold">{selectedMemberData.name}</h3>
-                <p className="text-muted-foreground">{selectedMemberData.email}</p>
+                <h3 className="font-display text-lg sm:text-xl font-semibold">{selectedMemberData.name}</h3>
+                <p className="text-muted-foreground text-sm truncate max-w-[200px] sm:max-w-none">{selectedMemberData.email}</p>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <p className="text-2xl font-bold text-primary">{totalDaysPresent}</p>
               <p className="text-sm text-muted-foreground">Days Present</p>
             </div>
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
-                {day}
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+              <div key={i} className="text-center text-xs sm:text-sm font-medium text-muted-foreground py-1 sm:py-2">
+                <span className="sm:hidden">{day}</span>
+                <span className="hidden sm:inline">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i]}</span>
               </div>
             ))}
             
             {/* Empty cells for days before month starts */}
             {Array.from({ length: monthStart.getDay() }).map((_, i) => (
-              <div key={`empty-${i}`} className="p-2" />
+              <div key={`empty-${i}`} className="p-1 sm:p-2" />
             ))}
 
             {daysInMonth.map((day) => {
@@ -393,7 +394,7 @@ const AttendancePage = () => {
               return (
                 <div
                   key={day.toISOString()}
-                  className={`p-2 rounded-lg text-center text-sm cursor-pointer transition-colors ${
+                  className={`p-1 sm:p-2 rounded-lg text-center text-xs sm:text-sm cursor-pointer transition-colors ${
                     isPresent 
                       ? 'bg-success/20 text-success hover:bg-success/30' 
                       : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'
@@ -405,7 +406,7 @@ const AttendancePage = () => {
                 >
                   <span className="font-medium">{format(day, 'd')}</span>
                   {record && (
-                    <p className="text-xs mt-1">{record.entryTime.slice(0, 5)}</p>
+                    <p className="text-xs mt-0.5 sm:mt-1 hidden sm:block">{record.entryTime.slice(0, 5)}</p>
                   )}
                 </div>
               );
@@ -415,8 +416,42 @@ const AttendancePage = () => {
       )}
 
       {/* Attendance Records Table */}
-      <div className="card-elevated overflow-hidden">
-        <div className="overflow-x-auto -mx-1">
+      {/* Mobile Card View */}
+      <div className="block sm:hidden space-y-3">
+        {filteredAttendance.length === 0 ? (
+          <div className="card-elevated p-8 text-center text-muted-foreground">
+            {viewMode === 'day' 
+              ? `No attendance records for ${format(selectedDate, 'dd MMM yyyy')}`
+              : 'No attendance records found'
+            }
+          </div>
+        ) : (
+          filteredAttendance.map((record) => (
+            <div key={record.id} className="card-elevated p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-medium">
+                    {record.memberName.charAt(0)}
+                  </div>
+                  <span className="font-medium text-foreground">{record.memberName}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">{format(parseISO(record.date), 'dd MMM')}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-success">In: {record.entryTime}</span>
+                <span>{record.exitTime ? `Out: ${record.exitTime}` : <span className="text-warning">In Library</span>}</span>
+                <span className="text-muted-foreground">
+                  {record.duration ? `${Math.floor(record.duration / 60)}h ${record.duration % 60}m` : '-'}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="card-elevated overflow-hidden hidden sm:block">
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-secondary/50">

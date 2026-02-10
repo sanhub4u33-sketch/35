@@ -492,20 +492,20 @@ const DuesPage = () => {
 
       {/* Total Pending Amount */}
       {pendingDues.length > 0 && (
-        <div className="card-elevated p-6 mb-6 border-l-4 border-warning">
-          <div className="flex items-center justify-between">
+        <div className="card-elevated p-4 sm:p-6 mb-6 border-l-4 border-warning">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-warning" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-warning/10 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-warning" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Pending Amount</p>
-                <p className="text-3xl font-bold text-warning">
+                <p className="text-2xl sm:text-3xl font-bold text-warning">
                   ₹{pendingDues.reduce((sum, d) => sum + d.amount, 0).toLocaleString()}
                 </p>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right ml-13 sm:ml-0">
               <p className="text-sm text-muted-foreground">{pendingDues.length} pending due{pendingDues.length !== 1 ? 's' : ''}</p>
               <p className="text-xs text-muted-foreground">across {new Set(pendingDues.map(d => d.memberId)).size} member{new Set(pendingDues.map(d => d.memberId)).size !== 1 ? 's' : ''}</p>
             </div>
@@ -531,9 +531,78 @@ const DuesPage = () => {
         </div>
       </div>
 
-      {/* Payments List */}
-      <div className="card-elevated overflow-hidden">
-        <div className="overflow-x-auto -mx-1">
+      {/* Mobile Card View */}
+      <div className="block sm:hidden space-y-3">
+        {loading ? (
+          <div className="card-elevated p-8 text-center text-muted-foreground">Loading...</div>
+        ) : filteredDues.length === 0 ? (
+          <div className="card-elevated p-8 text-center text-muted-foreground">No payments recorded yet</div>
+        ) : (
+          filteredDues.map((due) => (
+            <div key={due.id} className="card-elevated p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-medium">
+                    {due.memberName.charAt(0)}
+                  </div>
+                  <span className="font-medium text-foreground">{due.memberName}</span>
+                </div>
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                  due.status === 'paid' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                }`}>
+                  {due.status === 'paid' ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                  {due.status}
+                </span>
+              </div>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Receipt</span>
+                  <span className="font-mono">{due.receiptNumber || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Period</span>
+                  <span>{due.periodStart && due.periodEnd 
+                    ? `${format(parseISO(due.periodStart), 'dd MMM')} - ${format(parseISO(due.periodEnd), 'dd MMM')}`
+                    : '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-semibold text-success">₹{due.amount}</span>
+                </div>
+                {due.paidDate && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Paid</span>
+                    <span>{format(parseISO(due.paidDate), 'dd MMM yyyy')}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                {due.status === 'pending' && (
+                  <>
+                    <Button size="sm" className="btn-primary gap-1 text-xs h-8 flex-1" onClick={() => handleMarkPaid({ id: due.id, memberName: due.memberName, amount: due.amount })}>
+                      <CheckCircle className="w-3 h-3" />
+                      Mark Paid
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 h-8 w-8" onClick={() => handleDeleteDue(due.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </>
+                )}
+                {due.status === 'paid' && due.receiptNumber && (
+                  <Button variant="outline" size="sm" className="gap-1 h-8" onClick={() => downloadReceiptPDF(due)}>
+                    <Download className="w-3 h-3" />
+                    Receipt
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="card-elevated overflow-hidden hidden sm:block">
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
