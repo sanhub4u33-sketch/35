@@ -6,7 +6,10 @@ import {
   FileText,
   Plus,
   IndianRupee,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Trash2,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -32,22 +35,170 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { useDues, useMembers } from '@/hooks/useFirebaseData';
+import { useDues, useMembers, useAutoDueGeneration } from '@/hooks/useFirebaseData';
 import { toast } from 'sonner';
 import { format, parseISO, subDays, subWeeks, subMonths, subYears, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
 
 type ExportPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 const DuesPage = () => {
-  const { dues, loading, recordPayment } = useDues();
+  const { dues, loading, recordPayment, getPendingDues, deletePayment, markDuePaid } = useDues();
   const { members } = useMembers();
+  useAutoDueGeneration(members, dues);
+  
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showAddPaymentDialog, setShowAddPaymentDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false);
+  const [markPaidTarget, setMarkPaidTarget] = useState<{ id: string; memberName: string; amount: number } | null>(null);
+  const [markPaidPin, setMarkPaidPin] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deletePin, setDeletePin] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>('monthly');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const pendingDues = getPendingDues();
+
+  const numberToWords = (num: number): string => {
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+      'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    if (num === 0) return 'Zero';
+    const convertLess = (n: number): string => {
+      if (n === 0) return '';
+      if (n < 20) return ones[n];
+      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+      return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convertLess(n % 100) : '');
+    };
+    if (num < 1000) return convertLess(num);
+    if (num < 100000) return convertLess(Math.floor(num / 1000)) + ' Thousand' + (num % 1000 ? ' ' + convertLess(num % 1000) : '');
+    return convertLess(Math.floor(num / 100000)) + ' Lakh' + (num % 100000 ? ' ' + numberToWords(num % 100000) : '');
+  };
+
+  const downloadReceiptPDF = (due: typeof dues[0]) => {
+    const member = members.find(m => m.id === due.memberId);
+    const amount = Number(due.amount) || 0;
+    const periodStart = due.periodStart ? parseISO(due.periodStart) : null;
+    const periodEnd = due.periodEnd ? parseISO(due.periodEnd) : null;
+    const periodText = periodStart && periodEnd ? `${format(periodStart, 'dd MMM')} - ${format(periodEnd, 'dd MMM yyyy')}` : 'N/A';
+    const paidDateText = due.paidDate ? format(new Date(due.paidDate), 'dd MMM yyyy') : 'N/A';
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 20;
+    let yPos = 25;
+    pdf.setFontSize(22); pdf.setTextColor(249, 115, 22);
+    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' }); yPos += 8;
+    pdf.setFontSize(10); pdf.setTextColor(102, 102, 102);
+    pdf.text('74XH+3HW, Ramuvapur, Mahmudabad, Uttar Pradesh 261203', pageWidth / 2, yPos, { align: 'center' }); yPos += 5;
+    pdf.text('Phone: +91 79913 04874 | Email: info@shrihanumantlibrary.com', pageWidth / 2, yPos, { align: 'center' }); yPos += 10;
+    pdf.setDrawColor(249, 115, 22); pdf.setLineWidth(1);
+    pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 15;
+    pdf.setFontSize(18); pdf.setTextColor(51, 51, 51);
+    pdf.text('PAYMENT RECEIPT', pageWidth / 2, yPos, { align: 'center' }); yPos += 12;
+    pdf.setFillColor(255, 247, 237); pdf.setDrawColor(249, 115, 22); pdf.setLineWidth(0.5);
+    const boxW = 80, boxX = (pageWidth - boxW) / 2;
+    pdf.roundedRect(boxX, yPos - 6, boxW, 14, 3, 3, 'FD');
+    pdf.setFontSize(14); pdf.setTextColor(234, 88, 12);
+    pdf.text(due.receiptNumber || 'N/A', pageWidth / 2, yPos + 3, { align: 'center' }); yPos += 20;
+    const col1X = margin + 8, col2X = pageWidth / 2 + 5;
+    pdf.setFillColor(250, 250, 250); pdf.setDrawColor(229, 229, 229);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 45, 3, 3, 'FD'); yPos += 8;
+    pdf.setFontSize(10); pdf.setTextColor(136, 136, 136);
+    pdf.text('MEMBER DETAILS', col1X, yPos); yPos += 8;
+    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
+    pdf.text('Member Name', col1X, yPos); pdf.text('Email Address', col2X, yPos); yPos += 5;
+    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
+    pdf.text(due.memberName, col1X, yPos); pdf.text(member?.email || 'N/A', col2X, yPos); yPos += 10;
+    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
+    pdf.text('Phone Number', col1X, yPos); pdf.text('Member ID', col2X, yPos); yPos += 5;
+    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
+    pdf.text(member?.phone || 'N/A', col1X, yPos); pdf.text(member?.id?.slice(0, 8).toUpperCase() || 'N/A', col2X, yPos); yPos += 15;
+    pdf.setFillColor(250, 250, 250); pdf.setDrawColor(229, 229, 229);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 45, 3, 3, 'FD'); yPos += 8;
+    pdf.setFontSize(10); pdf.setTextColor(136, 136, 136);
+    pdf.text('PAYMENT DETAILS', col1X, yPos); yPos += 8;
+    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
+    pdf.text('Fee Period', col1X, yPos); pdf.text('Payment Date', col2X, yPos); yPos += 5;
+    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
+    pdf.text(periodText, col1X, yPos); pdf.text(paidDateText, col2X, yPos); yPos += 10;
+    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
+    pdf.text('Payment Method', col1X, yPos); pdf.text('Status', col2X, yPos); yPos += 5;
+    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
+    pdf.text('Cash / Online', col1X, yPos);
+    pdf.setTextColor(22, 163, 74); pdf.text('Paid', col2X, yPos); yPos += 18;
+    pdf.setFillColor(249, 115, 22);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 40, 4, 4, 'F'); yPos += 10;
+    pdf.setTextColor(255, 255, 255); pdf.setFontSize(11);
+    pdf.text('TOTAL AMOUNT PAID', pageWidth / 2, yPos, { align: 'center' }); yPos += 12;
+    pdf.setFontSize(28);
+    pdf.text(`Rs. ${amount.toLocaleString('en-IN')}`, pageWidth / 2, yPos, { align: 'center' }); yPos += 10;
+    pdf.setFontSize(10);
+    pdf.text(`Rupees ${numberToWords(amount)} Only`, pageWidth / 2, yPos, { align: 'center' }); yPos += 25;
+    const sigY = yPos + 20;
+    pdf.setTextColor(51, 51, 51); pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
+    pdf.line(margin + 10, sigY, margin + 70, sigY);
+    pdf.line(pageWidth - margin - 70, sigY, pageWidth - margin - 10, sigY);
+    pdf.setFontSize(9); pdf.setTextColor(102, 102, 102);
+    pdf.text('Member Signature', margin + 40, sigY + 6, { align: 'center' });
+    pdf.text('Authorized Signature', pageWidth - margin - 40, sigY + 6, { align: 'center' });
+    yPos = sigY + 20;
+    pdf.setDrawColor(229, 229, 229); pdf.setLineWidth(0.3);
+    pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 8;
+    pdf.setFontSize(10); pdf.setTextColor(102, 102, 102);
+    pdf.text('Thank you for being a valued member of Shri Hanumant Library!', pageWidth / 2, yPos, { align: 'center' }); yPos += 5;
+    pdf.setFontSize(8);
+    pdf.text('This is a computer-generated receipt and does not require a physical signature.', pageWidth / 2, yPos, { align: 'center' }); yPos += 4;
+    pdf.text('For any queries, please contact us at +91 79913 04874', pageWidth / 2, yPos, { align: 'center' });
+    pdf.save(`Receipt-${due.receiptNumber}.pdf`);
+  };
+
+  const handleDeleteDue = (dueId: string) => {
+    setDeleteTargetId(dueId);
+    setDeletePin('');
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (deletePin !== '8090') {
+      toast.error('Incorrect PIN');
+      return;
+    }
+    if (!deleteTargetId) return;
+    try {
+      await deletePayment(deleteTargetId);
+      toast.success('Due record deleted');
+      setShowDeleteDialog(false);
+      setDeleteTargetId(null);
+    } catch {
+      toast.error('Failed to delete');
+    }
+  };
+
+  const handleMarkPaid = (due: { id: string; memberName: string; amount: number }) => {
+    setMarkPaidTarget(due);
+    setMarkPaidPin('');
+    setShowMarkPaidDialog(true);
+  };
+
+  const confirmMarkPaid = async () => {
+    if (markPaidPin !== '8090') {
+      toast.error('Incorrect PIN');
+      return;
+    }
+    if (!markPaidTarget) return;
+    try {
+      const receipt = await markDuePaid(markPaidTarget.id, markPaidTarget.memberName, markPaidTarget.amount);
+      toast.success(`Marked as paid. Receipt: ${receipt}`);
+      setShowMarkPaidDialog(false);
+      setMarkPaidTarget(null);
+    } catch {
+      toast.error('Failed to mark as paid');
+    }
+  };
 
   // New payment form state
   const [newPayment, setNewPayment] = useState({
@@ -72,9 +223,10 @@ const DuesPage = () => {
   }, [dues, searchQuery]);
 
   const stats = useMemo(() => {
-    const totalPayments = dues.length;
-    const totalAmount = dues.reduce((sum, d) => sum + d.amount, 0);
-    const thisMonth = dues.filter(d => {
+    const paidDues = dues.filter(d => d.status === 'paid');
+    const totalPayments = paidDues.length;
+    const totalAmount = paidDues.reduce((sum, d) => sum + d.amount, 0);
+    const thisMonth = paidDues.filter(d => {
       if (!d.paidDate) return false;
       const paidMonth = d.paidDate.substring(0, 7);
       const currentMonth = new Date().toISOString().substring(0, 7);
@@ -318,7 +470,7 @@ const DuesPage = () => {
       onSearch={setSearchQuery}
     >
       {/* Stats */}
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid sm:grid-cols-2 gap-4 mb-6">
         <div className="stat-card">
           <div className="flex items-center gap-3 mb-2">
             <CheckCircle className="w-5 h-5 text-success" />
@@ -336,51 +488,74 @@ const DuesPage = () => {
           <p className="text-2xl font-bold text-foreground">{stats.thisMonthPayments}</p>
           <p className="text-sm text-primary">₹{stats.thisMonthAmount.toLocaleString()}</p>
         </div>
-
-        <div className="stat-card flex items-center justify-center">
-          <Button onClick={handleOpenAddPayment} className="btn-primary gap-2">
-            <Plus className="w-5 h-5" />
-            Record Payment
-          </Button>
-        </div>
       </div>
+
+      {/* Total Pending Amount */}
+      {pendingDues.length > 0 && (
+        <div className="card-elevated p-6 mb-6 border-l-4 border-warning">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Pending Amount</p>
+                <p className="text-3xl font-bold text-warning">
+                  ₹{pendingDues.reduce((sum, d) => sum + d.amount, 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">{pendingDues.length} pending due{pendingDues.length !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-muted-foreground">across {new Set(pendingDues.map(d => d.memberId)).size} member{new Set(pendingDues.map(d => d.memberId)).size !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h3 className="text-lg font-semibold text-foreground">Payment History</h3>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowExportDialog(true)} 
-          className="gap-2"
-        >
-          <Download className="w-4 h-4" />
-          Export
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="icon" variant="outline" onClick={handleOpenAddPayment} className="h-9 w-9">
+            <Plus className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowExportDialog(true)} 
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </Button>
+        </div>
       </div>
 
       {/* Payments List */}
       <div className="card-elevated overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto -mx-1">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
                 <th className="text-left p-4 font-medium text-muted-foreground">Receipt No</th>
                 <th className="text-left p-4 font-medium text-muted-foreground">Member</th>
                 <th className="text-left p-4 font-medium text-muted-foreground">Period</th>
                 <th className="text-left p-4 font-medium text-muted-foreground">Amount</th>
+                <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
                 <th className="text-left p-4 font-medium text-muted-foreground">Paid Date</th>
+                <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     Loading...
                   </td>
                 </tr>
               ) : filteredDues.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     No payments recorded yet
                   </td>
                 </tr>
@@ -402,7 +577,35 @@ const DuesPage = () => {
                         : 'Period not set'}
                     </td>
                     <td className="p-4 font-semibold text-success">₹{due.amount}</td>
+                    <td className="p-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        due.status === 'paid' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                      }`}>
+                        {due.status === 'paid' ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                        {due.status}
+                      </span>
+                    </td>
                     <td className="p-4">{due.paidDate ? format(parseISO(due.paidDate), 'dd MMM yyyy') : '-'}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-1">
+                        {due.status === 'pending' && (
+                          <>
+                            <Button size="sm" className="btn-primary gap-1 text-xs h-8" onClick={() => handleMarkPaid({ id: due.id, memberName: due.memberName, amount: due.amount })}>
+                              <CheckCircle className="w-3 h-3" />
+                              Paid
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 h-8 w-8" onClick={() => handleDeleteDue(due.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                        {due.status === 'paid' && due.receiptNumber && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => downloadReceiptPDF(due)}>
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -644,6 +847,65 @@ const DuesPage = () => {
             <Button onClick={handleConfirmPayment} className="btn-primary">
               Confirm Payment
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete PIN Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-destructive">Delete Due Record</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-muted-foreground">Enter PIN to confirm deletion. This action cannot be undone.</p>
+            <div className="space-y-2">
+              <Label htmlFor="delete-pin">Enter PIN</Label>
+              <Input
+                id="delete-pin"
+                type="password"
+                placeholder="Enter PIN"
+                value={deletePin}
+                onChange={(e) => setDeletePin(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && confirmDelete()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Paid PIN Dialog */}
+      <Dialog open={showMarkPaidDialog} onOpenChange={setShowMarkPaidDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-success">Mark Due as Paid</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {markPaidTarget && (
+              <div className="p-3 bg-secondary/50 rounded-lg space-y-1 text-sm">
+                <p><span className="text-muted-foreground">Member:</span> <span className="font-semibold">{markPaidTarget.memberName}</span></p>
+                <p><span className="text-muted-foreground">Amount:</span> <span className="font-semibold text-success">₹{markPaidTarget.amount}</span></p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="mark-paid-pin">Enter PIN to confirm</Label>
+              <Input
+                id="mark-paid-pin"
+                type="password"
+                placeholder="Enter PIN"
+                value={markPaidPin}
+                onChange={(e) => setMarkPaidPin(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && confirmMarkPaid()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMarkPaidDialog(false)}>Cancel</Button>
+            <Button onClick={confirmMarkPaid} className="btn-primary">Confirm Paid</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

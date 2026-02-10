@@ -416,8 +416,8 @@ const AttendancePage = () => {
 
       {/* Attendance Records Table */}
       <div className="card-elevated overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto -mx-1">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
                 <th className="text-left p-4 font-medium text-muted-foreground">Date</th>

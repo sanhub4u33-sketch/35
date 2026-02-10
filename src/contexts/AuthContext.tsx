@@ -5,8 +5,8 @@ import {
   signOut,
   onIdTokenChanged
 } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
-import { auth, database } from '@/lib/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { auth, firestore } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -37,9 +37,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser.email === 'owner@gmail.com') {
         return 'admin';
       }
-      const memberRef = ref(database, `members/${currentUser.uid}`);
-      const snapshot = await get(memberRef);
-      return snapshot.exists() ? 'user' : null;
+      // Check if user exists as a member in Firestore
+      const membersSnap = await getDocs(
+        query(collection(firestore, 'members'), where('email', '==', currentUser.email))
+      );
+      return membersSnap.size > 0 ? 'user' : null;
     } catch (error) {
       console.error('Error determining user role:', error);
       return null;
@@ -49,16 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let isMounted = true;
 
-    // INITIAL load – waits for Firebase to restore auth from persistence,
-    // then reads currentUser and resolves the role BEFORE setting loading to false.
-    const initializeAuth = async () => {
+    const initializeAuthFn = async () => {
       try {
         const readyPromise =
           typeof (auth as any).authStateReady === 'function'
             ? (auth as any).authStateReady()
             : new Promise<void>((resolve) => setTimeout(resolve, 1500));
 
-        // Safety timeout so the app never gets stuck loading
         await Promise.race([
           readyPromise,
           new Promise<void>((resolve) => setTimeout(resolve, 12000)),
@@ -66,7 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!isMounted) return;
 
-        // auth.currentUser is guaranteed to be populated after authStateReady
         const currentUser = auth.currentUser;
         setUser(currentUser);
 
@@ -90,10 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    initializeAuth();
+    initializeAuthFn();
 
-    // ONGOING listener – fires on sign-in / sign-out / token refresh AFTER init.
-    // Does NOT control isLoading.
     const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
       if (!isMounted || !initializedRef.current) return;
       console.log('Auth state changed:', currentUser?.email || 'No user');
