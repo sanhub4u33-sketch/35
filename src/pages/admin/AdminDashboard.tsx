@@ -149,26 +149,26 @@ const AdminDashboard = () => {
           {todayAttendance.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No attendance recorded today</p>
           ) : (
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="space-y-3 max-h-80 overflow-y-auto">
               {todayAttendance.slice(0, 8).map((record) => (
                 <div 
                   key={record.id}
-                  className="flex-shrink-0 w-56 p-3 rounded-lg bg-secondary/50"
+                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${record.exitTime ? 'bg-muted-foreground' : 'bg-success'}`} />
-                    <p className="font-medium text-foreground truncate">{record.memberName}</p>
+                    <div>
+                      <p className="font-medium text-foreground">{record.memberName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Entry: {record.entryTime}
+                        {record.exitTime && ` • Exit: ${record.exitTime}`}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Entry: {record.entryTime}
-                  </p>
-                  {record.exitTime && (
-                    <p className="text-sm text-muted-foreground">Exit: {record.exitTime}</p>
-                  )}
                   {record.duration && (
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <span className="text-sm text-muted-foreground">
                       {Math.floor(record.duration / 60)}h {record.duration % 60}m
-                    </p>
+                    </span>
                   )}
                 </div>
               ))}
@@ -185,19 +185,21 @@ const AdminDashboard = () => {
           {recentActivities.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No recent activity</p>
           ) : (
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="space-y-3 max-h-80 overflow-y-auto">
               {recentActivities.map((activity) => (
                 <div 
                   key={activity.id}
-                  className="flex-shrink-0 w-56 p-3 rounded-lg bg-secondary/50"
+                  className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50"
                 >
-                  <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center mb-2">
+                  <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center flex-shrink-0">
                     {getActivityIcon(activity.type)}
                   </div>
-                  <p className="text-sm text-foreground line-clamp-2">{activity.details}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {format(new Date(activity.timestamp), 'MMM d, h:mm a')}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground">{activity.details}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(activity.timestamp), 'MMM d, h:mm a')}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
