@@ -3,7 +3,7 @@ import {
   User,
   signInWithEmailAndPassword,
   signOut,
-  onIdTokenChanged
+  onAuthStateChanged
 } from 'firebase/auth';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, firestore } from '@/lib/firebase';
@@ -30,14 +30,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const initializedRef = useRef(false);
+  const currentUidRef = useRef<string | null>(null);
 
   const determineUserRole = useCallback(async (currentUser: User): Promise<'admin' | 'user' | null> => {
     try {
       if (currentUser.email === 'owner@gmail.com') {
         return 'admin';
       }
-      // Check if user exists as a member in Firestore
       const membersSnap = await getDocs(
         query(collection(firestore, 'members'), where('email', '==', currentUser.email))
       );
@@ -51,8 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let isMounted = true;
 
-    const initializeAuthFn = async () => {
+    // Phase 1: Wait for Firebase to restore persisted session BEFORE setting loading=false
+    const initializeAuth = async () => {
       try {
+        // Wait for Firebase to be ready (restores persisted session)
         const readyPromise =
           typeof (auth as any).authStateReady === 'function'
             ? (auth as any).authStateReady()
@@ -66,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isMounted) return;
 
         const currentUser = auth.currentUser;
+        currentUidRef.current = currentUser?.uid ?? null;
         setUser(currentUser);
 
         if (currentUser) {
@@ -81,18 +83,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserRole(null);
         }
       } finally {
-        if (isMounted) {
-          initializedRef.current = true;
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
 
-    initializeAuthFn();
+    initializeAuth();
 
-    const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
-      if (!isMounted || !initializedRef.current) return;
-      console.log('Auth state changed:', currentUser?.email || 'No user');
+    // Phase 2: Listen for ACTUAL sign-in/sign-out changes (not token refreshes)
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!isMounted) return;
+
+      // Skip if same user - prevents re-renders from duplicate callbacks
+      if (currentUser?.uid === currentUidRef.current && !currentUser === !currentUidRef.current) {
+        return;
+      }
+
+      currentUidRef.current = currentUser?.uid ?? null;
       setUser(currentUser);
 
       if (currentUser) {
@@ -117,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    currentUidRef.current = null;
     await signOut(auth);
     setUser(null);
     setUserRole(null);

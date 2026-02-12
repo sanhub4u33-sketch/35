@@ -70,6 +70,12 @@ export interface ChatMessage {
   timestamp: string;
   type: 'text' | 'emoji' | 'gif';
   roomId: string; // 'group' for group chat or sorted 'memberId1_memberId2' for private
+  replyTo?: {
+    id: string;
+    senderName: string;
+    content: string;
+  };
+  reactions?: { [emoji: string]: string[] }; // emoji -> array of memberIds
 }
 
 export interface ChatRoom {
@@ -91,4 +97,13 @@ export interface Notification {
 
 export interface LibrarySettings {
   chatEnabled: boolean;
+}
+
+export interface PresenceData {
+  online: boolean;
+  lastSeen: string;
+  typing?: {
+    roomId: string;
+    timestamp: string;
+  } | null;
 }

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, Routes, Route } from 'react-router-dom';
 import { 
   BookOpen, 
@@ -30,7 +31,7 @@ import { verifyLibraryLocation } from '@/lib/geolocation';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths, differenceInDays } from 'date-fns';
 import jsPDF from 'jspdf';
 import ChatModule from '@/components/chat/ChatModule';
-import { useChat } from '@/hooks/useChatAndNotifications';
+import { useChatSettings } from '@/hooks/useChatAndNotifications';
 import UserLayout from '@/components/UserLayout';
 import LeaderboardPage from './LeaderboardPage';
 import StreaksPage from './StreaksPage';
@@ -87,8 +88,33 @@ const UserDashboard = () => {
   const currentSession = useCurrentMemberAttendance(memberData?.id || '');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showChat, setShowChat] = useState(false);
-  const { chatEnabled } = useChat(memberData?.id || '', memberData?.name || '');
+  const [showChat, setShowChat] = useState(() => sessionStorage.getItem('chatOpen') === 'true');
+  const showChatRef = useRef(showChat);
+  showChatRef.current = showChat;
+
+  const openChat = useCallback(() => {
+    setShowChat(true);
+    sessionStorage.setItem('chatOpen', 'true');
+    window.history.pushState({ chat: true }, '');
+  }, []);
+
+  const closeChat = useCallback(() => {
+    setShowChat(false);
+    sessionStorage.removeItem('chatOpen');
+  }, []);
+
+  // Handle browser back button to close chat
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (showChatRef.current) {
+        setShowChat(false);
+        sessionStorage.removeItem('chatOpen');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  const { chatEnabled } = useChatSettings();
 
   useEffect(() => {
     const fetchMemberData = async () => {
@@ -599,11 +625,12 @@ const UserDashboard = () => {
   return (
     <UserLayout
       memberData={memberData}
-      onOpenChat={() => setShowChat(true)}
+      onOpenChat={openChat}
       chatEnabled={chatEnabled}
     >
-      {showChat && memberData && (
-        <ChatModule memberId={memberData.id} memberName={memberData.name} onClose={() => setShowChat(false)} />
+      {memberData && createPortal(
+        <ChatModule memberId={memberData.id} memberName={memberData.name} onClose={closeChat} visible={showChat} />,
+        document.body
       )}
 
       <Routes>

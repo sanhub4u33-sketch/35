@@ -55,7 +55,7 @@ const UserLayout = ({ children, memberData, onOpenChat, chatEnabled }: UserLayou
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <Sidebar className="border-r border-sidebar-border">
+        <Sidebar className="border-r-0">
           <SidebarHeader className="p-4">
             <Link to="/" className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full hero-gradient flex items-center justify-center flex-shrink-0">
