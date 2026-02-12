@@ -15,7 +15,7 @@ import {
   Send
 } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
-import { useMembers, useAttendance, useDues, useActivities, useAutoDueGeneration } from '@/hooks/useFirebaseData';
+import { useMembers, useAttendance, useDues, useActivities } from '@/hooks/useFirebaseData';
 import { useAdminNotifications, useChatSettings } from '@/hooks/useChatAndNotifications';
 import { format, parseISO } from 'date-fns';
 import { useState } from 'react';
@@ -36,13 +36,10 @@ import { toast } from 'sonner';
 const AdminDashboard = () => {
   const { members } = useMembers();
   const { getTodayAttendance } = useAttendance();
-  const { dues, getPendingDues } = useDues();
+  const { dues } = useDues();
   const { activities } = useActivities();
   const { members: allMembers, sendNotification } = useAdminNotifications();
   const { chatEnabled, toggleChat } = useChatSettings();
-  useAutoDueGeneration(members, dues);
-
-  const pendingDues = getPendingDues();
 
   const [notifTitle, setNotifTitle] = useState('');
   const [notifMessage, setNotifMessage] = useState('');
@@ -95,15 +92,15 @@ const AdminDashboard = () => {
       color: 'bg-success/10 text-success',
     },
     {
-      icon: AlertCircle,
-      label: 'Pending Dues',
-      value: pendingDues.length,
-      color: 'bg-warning/10 text-warning',
-    },
-    {
       icon: IndianRupee,
       label: 'This Month',
       value: `₹${totalThisMonth.toLocaleString()}`,
+      color: 'bg-warning/10 text-warning',
+    },
+    {
+      icon: TrendingUp,
+      label: 'Total Payments',
+      value: dues.length,
       color: 'bg-accent/10 text-accent-foreground',
     },
   ];
@@ -198,6 +195,44 @@ const AdminDashboard = () => {
                     <p className="text-sm text-foreground">{activity.details}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(activity.timestamp), 'MMM d, h:mm a')}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Payments */}
+        <div className="card-elevated p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-display text-xl font-semibold text-foreground">Recent Payments</h2>
+            <Link to="/admin/dues" className="text-primary hover:underline text-sm flex items-center gap-1">
+              View All <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {dues.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No payments recorded yet</p>
+          ) : (
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+            {dues.slice(0, 5).map((due) => (
+                <div 
+                  key={due.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{due.memberName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {due.periodStart && due.periodEnd 
+                        ? `${format(parseISO(due.periodStart), 'dd MMM')} - ${format(parseISO(due.periodEnd), 'dd MMM')}`
+                        : 'Period not set'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-success">₹{due.amount}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {due.paidDate ? format(parseISO(due.paidDate), 'dd MMM') : ''}
                     </p>
                   </div>
                 </div>

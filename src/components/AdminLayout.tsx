@@ -12,7 +12,9 @@ import {
   BookOpen,
   Search,
   UserPlus,
-  UserMinus
+  UserMinus,
+  BarChart3,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,7 @@ const navItems = [
   { icon: Calendar, label: 'Attendance', path: '/admin/attendance' },
   { icon: IndianRupee, label: 'Dues & Fees', path: '/admin/dues' },
   { icon: FileText, label: 'Receipts', path: '/admin/receipts' },
+  { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
 ];
 
 const AdminLayout = ({ children, title, searchPlaceholder, onSearch }: AdminLayoutProps) => {

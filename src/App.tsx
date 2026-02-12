@@ -11,9 +11,10 @@ import MembersPage from "./pages/admin/MembersPage";
 import AttendancePage from "./pages/admin/AttendancePage";
 import DuesPage from "./pages/admin/DuesPage";
 import ReceiptsPage from "./pages/admin/ReceiptsPage";
+import ReportsPage from "./pages/admin/ReportsPage";
 import UserDashboard from "./pages/user/UserDashboard";
 import NotFound from "./pages/NotFound";
- import InstallPrompt from "./components/pwa/InstallPrompt";
+import InstallPrompt from "./components/pwa/InstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -75,9 +76,14 @@ const AppRoutes = () => {
           <ReceiptsPage />
         </ProtectedRoute>
       } />
+      <Route path="/admin/reports" element={
+        <ProtectedRoute requiredRole="admin">
+          <ReportsPage />
+        </ProtectedRoute>
+      } />
 
       {/* User Routes */}
-      <Route path="/user/*" element={
+      <Route path="/user" element={
         <ProtectedRoute>
           <UserDashboard />
         </ProtectedRoute>

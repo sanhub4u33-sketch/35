@@ -34,7 +34,7 @@ import MemberDetailModal from '@/components/admin/MemberDetailModal';
 
 const MembersPage = () => {
   const { members, loading, addMember, deleteMember } = useMembers();
-  const { getMemberDues, recordPayment, markDuePaid, deletePayment } = useDues();
+  const { getMemberDues, recordPayment } = useDues();
   const { getMemberAttendance } = useAttendance();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -229,7 +229,7 @@ const MembersPage = () => {
 
       {/* Add Member Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Add New Member</DialogTitle>
           </DialogHeader>
@@ -358,8 +358,6 @@ const MembersPage = () => {
         memberDues={selectedMember ? getMemberDues(selectedMember.id) : []}
         memberAttendance={selectedMember ? getMemberAttendance(selectedMember.id) : []}
         onRecordPayment={recordPayment}
-        onMarkDuePaid={markDuePaid}
-        onDeleteDue={deletePayment}
       />
     </AdminLayout>
   );

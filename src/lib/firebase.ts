@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
-import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBHlu5iaHQPI1b0g_MLZFfFE5vuWmDuWD0",
@@ -28,9 +27,5 @@ export const secondaryAuth = initializeAuth(secondaryApp, {
   persistence: [indexedDBLocalPersistence, browserLocalPersistence]
 });
 
-// Firestore for main data (members, attendance, dues, activities)
-export const firestore = getFirestore(app);
-
-// Realtime Database for chat only
 export const database = getDatabase(app);
 export default app;
