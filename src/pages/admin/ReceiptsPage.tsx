@@ -147,23 +147,23 @@ const ReceiptsPage = () => {
     const margin = 20;
     let yPos = 20;
 
-    // ── Dark premium header background ──
-    pdf.setFillColor(15, 15, 15);
+    // ── Light warm header background ──
+    pdf.setFillColor(255, 252, 245);
     pdf.rect(0, 0, pageWidth, 52, 'F');
 
     // Gold accent bar at top
     pdf.setFillColor(200, 155, 50);
     pdf.rect(0, 0, pageWidth, 3, 'F');
 
-    // Library name – gold
+    // Library name – rich gold/amber
     pdf.setFontSize(24);
-    pdf.setTextColor(200, 155, 50);
+    pdf.setTextColor(160, 110, 20);
     pdf.setFont('helvetica', 'bold');
     pdf.text('WISEBRARY', pageWidth / 2, yPos + 10, { align: 'center' });
 
-    // Sub-tagline – white
+    // Sub-tagline – warm grey
     pdf.setFontSize(9);
-    pdf.setTextColor(180, 180, 180);
+    pdf.setTextColor(120, 100, 70);
     pdf.setFont('helvetica', 'normal');
     pdf.text("Lucknow's First Digital Library", pageWidth / 2, yPos + 18, { align: 'center' });
     pdf.text('+91 81127 08784  |  wisebrary@gmail.com', pageWidth / 2, yPos + 24, { align: 'center' });
@@ -281,9 +281,11 @@ const ReceiptsPage = () => {
     pdf.text('✓ PAID', col2X, yPos);
     yPos += 18;
 
-    // ── Premium amount section – dark background + gold text ──
-    pdf.setFillColor(15, 15, 15);
-    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 46, 4, 4, 'F');
+    // ── Premium amount section – warm cream background + gold text ──
+    pdf.setFillColor(255, 248, 225);
+    pdf.setDrawColor(200, 155, 50);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 46, 4, 4, 'FD');
 
     // Gold top strip on amount box
     pdf.setFillColor(200, 155, 50);
@@ -292,19 +294,19 @@ const ReceiptsPage = () => {
     yPos += 12;
 
     pdf.setFontSize(9);
-    pdf.setTextColor(160, 140, 100);
+    pdf.setTextColor(140, 100, 30);
     pdf.setFont('helvetica', 'normal');
     pdf.text('TOTAL AMOUNT PAID', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
 
     pdf.setFontSize(30);
-    pdf.setTextColor(200, 155, 50);
+    pdf.setTextColor(160, 110, 20);
     pdf.setFont('helvetica', 'bold');
     pdf.text(`Rs. ${amount.toLocaleString('en-IN')}`, pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
 
     pdf.setFontSize(9);
-    pdf.setTextColor(180, 180, 180);
+    pdf.setTextColor(120, 90, 40);
     pdf.setFont('helvetica', 'normal');
     pdf.text(`Rupees ${numberToWords(amount)} Only`, pageWidth / 2, yPos, { align: 'center' });
     yPos += 22;
