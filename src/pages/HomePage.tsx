@@ -122,11 +122,11 @@ const HomePage = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 glass-effect">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-primary/30 bg-white flex items-center justify-center">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full overflow-hidden flex-shrink-0 bg-white flex items-center justify-center">
               <img src={wisebraryLogo} alt="Wisebrary" className="w-full h-full object-cover" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-display text-base sm:text-2xl font-bold text-foreground truncate tracking-tight">Wisebrary</h1>
+              <h1 className="font-display text-xl sm:text-3xl font-bold text-foreground truncate tracking-tight">Wisebrary</h1>
               <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">Lucknow's First Digital Library</p>
             </div>
           </Link>
