@@ -9,12 +9,9 @@ import {
   LogOut,
   Menu,
   X,
-  BookOpen,
   Search,
   UserPlus,
-  UserMinus,
-  BarChart3,
-  MessageSquare
+  UserMinus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +31,6 @@ const navItems = [
   { icon: Calendar, label: 'Attendance', path: '/admin/attendance' },
   { icon: IndianRupee, label: 'Dues & Fees', path: '/admin/dues' },
   { icon: FileText, label: 'Receipts', path: '/admin/receipts' },
-  { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
 ];
 
 const AdminLayout = ({ children, title, searchPlaceholder, onSearch }: AdminLayoutProps) => {
@@ -73,11 +69,9 @@ const AdminLayout = ({ children, title, searchPlaceholder, onSearch }: AdminLayo
           {/* Logo */}
           <div className="p-6 border-b border-sidebar-border">
             <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full hero-gradient flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img src="/icons/wisebrary-logo.png" alt="Wisebrary" className="w-10 h-10 rounded-full object-contain" />
               <div>
-                <h1 className="font-display text-lg font-bold text-sidebar-foreground">Shri Hanumant</h1>
+                <h1 className="font-display text-lg font-bold text-sidebar-foreground">Wisebrary</h1>
                 <p className="text-xs text-sidebar-foreground/60">Admin Panel</p>
               </div>
             </Link>

@@ -4,7 +4,9 @@ import {
   Trash2, 
   Phone, 
   Mail,
-  Calendar
+  Calendar,
+  Upload,
+  FileText
 } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -34,12 +36,14 @@ import MemberDetailModal from '@/components/admin/MemberDetailModal';
 
 const MembersPage = () => {
   const { members, loading, addMember, deleteMember } = useMembers();
-  const { getMemberDues, recordPayment } = useDues();
+  const { getMemberDues, recordPayment, markDuePaid, deletePayment } = useDues();
   const { getMemberAttendance } = useAttendance();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [aadhaarFile, setAadhaarFile] = useState<string | null>(null);
+  const [aadhaarFileName, setAadhaarFileName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -47,7 +51,6 @@ const MembersPage = () => {
     phone: '',
     address: '',
     seatNumber: '',
-    lockerNumber: '',
     shift: 'morning',
     monthlyFee: 500,
     joinDate: format(new Date(), 'yyyy-MM-dd'),
@@ -67,42 +70,55 @@ const MembersPage = () => {
       phone: '',
       address: '',
       seatNumber: '',
-      lockerNumber: '',
       shift: 'morning',
       monthlyFee: 500,
       joinDate: format(new Date(), 'yyyy-MM-dd'),
     });
+    setAadhaarFile(null);
+    setAadhaarFileName('');
+  };
+
+  const handleAadhaarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setAadhaarFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAadhaarFile(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddMember = async () => {
     try {
-      // Create Firebase Auth user for the new member using secondary auth
-      // This prevents signing out the current admin
       await createUserWithEmailAndPassword(
         secondaryAuth, 
         formData.email, 
         formData.password
       );
-
-      // Sign out from secondary auth instance
       await signOut(secondaryAuth);
 
       const joinDate = formData.joinDate;
 
-      // Add member to database
       await addMember({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
         seatNumber: formData.seatNumber,
-        lockerNumber: formData.lockerNumber,
         shift: formData.shift,
         monthlyFee: formData.monthlyFee,
         status: 'active',
         joinDate,
-        password: formData.password, // Store for admin to view/edit
-      });
+        password: formData.password,
+        ...(aadhaarFile ? { aadhaarDoc: aadhaarFile } : {}),
+      } as any);
 
       toast.success(`Member added! Login credentials:\nEmail: ${formData.email}\nPassword: ${formData.password}`);
       setShowAddDialog(false);
@@ -229,7 +245,7 @@ const MembersPage = () => {
 
       {/* Add Member Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Add New Member</DialogTitle>
           </DialogHeader>
@@ -282,23 +298,39 @@ const MembersPage = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Seat Number</Label>
-                <Input
-                  placeholder="e.g., A-12"
-                  value={formData.seatNumber}
-                  onChange={(e) => setFormData({ ...formData, seatNumber: e.target.value })}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Seat Number</Label>
+              <Input
+                placeholder="e.g., A-12"
+                value={formData.seatNumber}
+                onChange={(e) => setFormData({ ...formData, seatNumber: e.target.value })}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label>Locker Number</Label>
-                <Input
-                  placeholder="e.g., L-01"
-                  value={formData.lockerNumber}
-                  onChange={(e) => setFormData({ ...formData, lockerNumber: e.target.value })}
+            {/* Aadhaar Card Upload */}
+            <div className="space-y-2">
+              <Label>Aadhaar Card Document</Label>
+              <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleAadhaarUpload}
+                  className="hidden"
+                  id="aadhaar-upload"
                 />
+                <label htmlFor="aadhaar-upload" className="cursor-pointer">
+                  {aadhaarFile ? (
+                    <div className="flex items-center gap-2 justify-center text-success">
+                      <FileText className="w-5 h-5" />
+                      <span className="text-sm">{aadhaarFileName}</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Upload className="w-8 h-8" />
+                      <span className="text-sm">Upload Aadhaar Card (Image/PDF, max 5MB)</span>
+                    </div>
+                  )}
+                </label>
               </div>
             </div>
 
@@ -358,6 +390,8 @@ const MembersPage = () => {
         memberDues={selectedMember ? getMemberDues(selectedMember.id) : []}
         memberAttendance={selectedMember ? getMemberAttendance(selectedMember.id) : []}
         onRecordPayment={recordPayment}
+        onMarkDuePaid={markDuePaid}
+        onDeleteDue={deletePayment}
       />
     </AdminLayout>
   );

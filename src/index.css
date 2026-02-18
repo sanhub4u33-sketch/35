@@ -1,41 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Shri Hanumant Library Design System
-   Colors inspired by traditional Indian aesthetics - saffron, warm earth tones
+/* Wisebrary Design System
+   Premium golden, black & white aesthetic
 */
 
 @layer base {
   :root {
-    /* Warm cream background */
-    --background: 40 33% 98%;
-    --foreground: 24 10% 15%;
+    /* Clean white background */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 8%;
 
-    /* Card with subtle warmth */
-    --card: 40 30% 99%;
-    --card-foreground: 24 10% 15%;
+    /* Card */
+    --card: 0 0% 99%;
+    --card-foreground: 0 0% 8%;
 
-    --popover: 40 30% 99%;
-    --popover-foreground: 24 10% 15%;
+    --popover: 0 0% 99%;
+    --popover-foreground: 0 0% 8%;
 
-    /* Saffron orange - representing Hanuman */
-    --primary: 24 95% 53%;
+    /* Gold primary */
+    --primary: 43 90% 48%;
     --primary-foreground: 0 0% 100%;
 
-    /* Warm brown secondary */
-    --secondary: 30 25% 92%;
-    --secondary-foreground: 24 30% 25%;
+    /* Light grey secondary */
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 0 0% 15%;
 
-    /* Muted earth tones */
-    --muted: 35 20% 93%;
-    --muted-foreground: 24 10% 45%;
+    /* Muted */
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 40%;
 
     /* Gold accent */
     --accent: 43 96% 56%;
-    --accent-foreground: 24 30% 15%;
+    --accent-foreground: 0 0% 8%;
 
     /* Success green */
     --success: 142 76% 36%;
@@ -43,77 +43,77 @@
 
     /* Warning amber */
     --warning: 38 92% 50%;
-    --warning-foreground: 24 30% 15%;
+    --warning-foreground: 0 0% 8%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 20% 88%;
-    --input: 30 20% 88%;
-    --ring: 24 95% 53%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 43 90% 48%;
 
     --radius: 0.625rem;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(24 95% 53%) 0%, hsl(35 95% 55%) 50%, hsl(43 96% 56%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(40 30% 99%) 0%, hsl(35 25% 96%) 100%);
-    --gradient-overlay: linear-gradient(180deg, hsla(24 10% 15% / 0.7) 0%, hsla(24 10% 15% / 0.9) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(43 90% 48%) 0%, hsl(43 96% 56%) 50%, hsl(48 90% 60%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 99%) 0%, hsl(0 0% 96%) 100%);
+    --gradient-overlay: linear-gradient(180deg, hsla(0 0% 0% / 0.7) 0%, hsla(0 0% 0% / 0.9) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsla(24 10% 15% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsla(24 10% 15% / 0.1), 0 2px 4px -2px hsla(24 10% 15% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsla(24 10% 15% / 0.1), 0 4px 6px -4px hsla(24 10% 15% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsla(24 10% 15% / 0.1), 0 8px 10px -6px hsla(24 10% 15% / 0.1);
-    --shadow-glow: 0 0 40px hsla(24 95% 53% / 0.3);
+    --shadow-sm: 0 1px 2px 0 hsla(0 0% 0% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsla(0 0% 0% / 0.1), 0 2px 4px -2px hsla(0 0% 0% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsla(0 0% 0% / 0.1), 0 4px 6px -4px hsla(0 0% 0% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsla(0 0% 0% / 0.1), 0 8px 10px -6px hsla(0 0% 0% / 0.1);
+    --shadow-glow: 0 0 40px hsla(43 90% 48% / 0.3);
 
-    /* Sidebar */
-    --sidebar-background: 24 30% 12%;
-    --sidebar-foreground: 40 30% 95%;
-    --sidebar-primary: 24 95% 53%;
+    /* Sidebar - dark/black */
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 43 90% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 24 25% 20%;
-    --sidebar-accent-foreground: 40 30% 95%;
-    --sidebar-border: 24 20% 20%;
-    --sidebar-ring: 24 95% 53%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 43 90% 48%;
   }
 
   .dark {
-    --background: 24 15% 8%;
-    --foreground: 40 30% 95%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
 
-    --card: 24 15% 12%;
-    --card-foreground: 40 30% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 24 15% 12%;
-    --popover-foreground: 40 30% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 24 95% 58%;
-    --primary-foreground: 24 30% 10%;
+    --primary: 43 90% 52%;
+    --primary-foreground: 0 0% 5%;
 
-    --secondary: 24 20% 18%;
-    --secondary-foreground: 40 30% 90%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 24 15% 18%;
-    --muted-foreground: 30 15% 60%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
 
     --accent: 43 96% 56%;
-    --accent-foreground: 24 30% 10%;
+    --accent-foreground: 0 0% 5%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 24 15% 20%;
-    --input: 24 15% 20%;
-    --ring: 24 95% 58%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 43 90% 52%;
 
-    --sidebar-background: 24 20% 6%;
-    --sidebar-foreground: 40 30% 95%;
-    --sidebar-primary: 24 95% 58%;
-    --sidebar-primary-foreground: 24 30% 10%;
-    --sidebar-accent: 24 20% 15%;
-    --sidebar-accent-foreground: 40 30% 95%;
-    --sidebar-border: 24 15% 15%;
-    --sidebar-ring: 24 95% 58%;
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 43 90% 52%;
+    --sidebar-primary-foreground: 0 0% 5%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 12%;
+    --sidebar-ring: 43 90% 52%;
   }
 }
 
@@ -132,7 +132,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'League Spartan', system-ui, sans-serif;
     @apply font-semibold tracking-tight;
   }
 }
@@ -242,4 +242,3 @@
   .delay-300 { animation-delay: 300ms; }
   .delay-400 { animation-delay: 400ms; }
 }
-

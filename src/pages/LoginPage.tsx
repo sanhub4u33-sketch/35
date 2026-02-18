@@ -65,8 +65,8 @@ const LoginPage = () => {
           </button>
 
           <div className="card-elevated p-5 sm:p-8 text-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full hero-gradient flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <img src="/icons/wisebrary-logo.png" alt="Wisebrary" className="w-full h-full rounded-full object-contain" />
             </div>
             
             <h1 className="font-display text-xl sm:text-2xl font-bold text-foreground mb-2">

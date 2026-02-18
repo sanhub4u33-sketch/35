@@ -1,6 +1,7 @@
  import { useState, useEffect, useCallback } from 'react';
  import { ref, push, onValue, query, orderByChild, set, get, update } from 'firebase/database';
- import { database } from '@/lib/firebase';
+ import { collection, onSnapshot } from 'firebase/firestore';
+ import { database, firestore } from '@/lib/firebase';
  import { ChatMessage, Notification, LibrarySettings, Member } from '@/types/library';
  
  export const useChat = (currentMemberId: string, currentMemberName: string) => {
@@ -25,18 +26,15 @@
        }
      });
  
-     // Listen to members for private chat list
-     const membersRef = ref(database, 'members');
-     const unsubMembers = onValue(membersRef, (snapshot) => {
-       if (snapshot.exists()) {
-         const data = snapshot.val();
-         const memberList = Object.entries(data).map(([id, m]: [string, any]) => ({
-           id,
-           ...m
-         }));
-         setMembers(memberList);
-       }
-     });
+      // Listen to members from Firestore (where they're actually stored)
+      const membersCol = collection(firestore, 'members');
+      const unsubMembers = onSnapshot(membersCol, (snapshot) => {
+        const memberList = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Member[];
+        setMembers(memberList);
+      });
  
      // Listen to chat enabled setting
      const settingsRef = ref(database, 'settings');

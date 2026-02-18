@@ -1,44 +1,57 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Clock, 
   Wifi, 
-  Lock, 
   BookOpen, 
   Users, 
   Star,
   MapPin,
   Phone,
+  Mail,
   ArrowRight,
   CheckCircle2,
-  Zap
+  Zap,
+  UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import heroImage from '@/assets/hero-library.jpg';
+import wisebraryLogo from '@/assets/wisebrary-logo.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPWAStandalone } from '@/lib/pwa';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase';
 
 const HomePage = () => {
   const { user, userRole, loading } = useAuth();
   const navigate = useNavigate();
   const pwa = isPWAStandalone();
+  const [activeCount, setActiveCount] = useState(0);
+
+  // Real-time active members count (those with entry but no exit today)
+  useEffect(() => {
+    const unsub = onSnapshot(collection(firestore, 'attendance'), (snap) => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const active = snap.docs.filter((d) => {
+        const data = d.data();
+        return data.date === today && !data.exitTime;
+      });
+      setActiveCount(active.length);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (!pwa) return;
     if (loading) return;
 
-    // PWA cold-starts on Android can restore the Firebase session first, and resolve role later.
-    // To avoid dropping the user on the public homepage (showing a Login button) after reopen,
-    // route any authenticated user straight to their dashboard.
     if (user) {
-      const isOwnerAdmin = user.email === 'owner@gmail.com';
+      const isOwnerAdmin = user.email === 'wisebray@gmail.com';
       const target = isOwnerAdmin ? '/admin' : '/user';
       navigate(target, { replace: true });
       return;
     }
-
-    // Non-PWA web visits should stay on the marketing homepage.
-    // (No action needed.)
   }, [pwa, loading, user, userRole, navigate]);
 
   if (pwa && (loading || !!user)) {
@@ -59,19 +72,14 @@ const HomePage = () => {
       description: 'Study anytime that suits your schedule. Our library never closes.',
     },
     {
-      icon: Lock,
-      title: 'Personal Lockers',
-      description: 'Secure storage for your books and belongings with individual lockers.',
-    },
-    {
       icon: Wifi,
       title: 'Dual High-Speed WiFi',
       description: 'Blazing fast internet with backup connection for uninterrupted studying.',
     },
     {
       icon: Zap,
-      title: 'First Digital Library in MMB',
-      description: 'Pioneer digital library in Mahmudabad with modern facilities.',
+      title: 'First Digital Library in Lucknow',
+      description: 'Pioneer digital library in Lucknow with modern facilities.',
     },
     {
       icon: Users,
@@ -82,6 +90,11 @@ const HomePage = () => {
       icon: BookOpen,
       title: 'Study Materials',
       description: 'Access to reference books and study materials for various exams.',
+    },
+    {
+      icon: UserCheck,
+      title: 'Digital Attendance',
+      description: 'Smart digital attendance tracking with real-time monitoring.',
     },
   ];
 
@@ -99,7 +112,7 @@ const HomePage = () => {
     {
       name: 'Amit Verma',
       exam: 'Bank PO',
-      text: 'The locker facility is amazing. I can keep my books safe and study whenever I want.',
+      text: 'The digital facilities are amazing. I can track my study hours and stay motivated.',
     },
   ];
 
@@ -109,12 +122,10 @@ const HomePage = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 glass-effect">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hero-gradient flex items-center justify-center flex-shrink-0">
-              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-            </div>
+            <img src={wisebraryLogo} alt="Wisebrary" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-contain flex-shrink-0" />
             <div className="min-w-0">
-              <h1 className="font-display text-sm sm:text-xl font-bold text-foreground truncate">Shri Hanumant Library</h1>
-              <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">Mahmudabad's First Digital Library</p>
+              <h1 className="font-display text-sm sm:text-xl font-bold text-foreground truncate">Wisebrary</h1>
+              <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">Lucknow's First Digital Library</p>
             </div>
           </Link>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
@@ -133,7 +144,7 @@ const HomePage = () => {
         <div className="absolute inset-0 z-0">
           <img 
             src={heroImage} 
-            alt="Shri Hanumant Library" 
+            alt="Wisebrary - Digital Library" 
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-foreground/90 via-foreground/70 to-transparent" />
@@ -143,7 +154,7 @@ const HomePage = () => {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 bg-primary/20 backdrop-blur-sm px-4 py-2 rounded-full mb-6 animate-fade-in">
               <Star className="w-4 h-4 text-accent" />
-              <span className="text-sm text-primary-foreground font-medium">First Digital Library in Mahmudabad</span>
+              <span className="text-sm text-primary-foreground font-medium">First Digital Library in Lucknow</span>
             </div>
             
             <h1 className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-primary-foreground mb-4 sm:mb-6 animate-slide-up">
@@ -152,7 +163,7 @@ const HomePage = () => {
             </h1>
             
             <p className="text-lg text-primary-foreground/80 mb-8 animate-slide-up delay-100">
-              A peaceful, modern study environment with 24/7 access, personal lockers, 
+              A peaceful, modern study environment with 24/7 access, 
               high-speed WiFi, and all the facilities you need to achieve your goals.
             </p>
             
@@ -176,8 +187,11 @@ const HomePage = () => {
               </div>
               <div className="w-px h-8 sm:h-12 bg-primary-foreground/30" />
               <div className="text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-primary-foreground">100+</p>
-                <p className="text-xs sm:text-sm text-primary-foreground/70">Active Members</p>
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
+                  <p className="text-2xl sm:text-3xl font-bold text-primary-foreground">{activeCount}</p>
+                </div>
+                <p className="text-xs sm:text-sm text-primary-foreground/70">Studying Now</p>
               </div>
               <div className="w-px h-8 sm:h-12 bg-primary-foreground/30" />
               <div className="text-center">
@@ -194,7 +208,7 @@ const HomePage = () => {
         <div className="container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <h2 className="font-display text-4xl font-bold text-foreground mb-4">
-              Why Choose Shri Hanumant Library?
+              Why Choose Wisebrary?
             </h2>
             <p className="text-muted-foreground">
               We provide everything you need for focused, productive study sessions.
@@ -237,13 +251,13 @@ const HomePage = () => {
 
               <div className="space-y-4">
                 {[
-                  'Personal locker for safe storage',
                   '24/7 library access with entry card',
                   'High-speed dual WiFi connection',
                   'Air-conditioned comfortable seating',
                   'Power backup for uninterrupted study',
                   'Digital attendance tracking',
                   'Flexible monthly payment options',
+                  'Study materials & reference books',
                 ].map((benefit) => (
                   <div key={benefit} className="flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
@@ -273,7 +287,7 @@ const HomePage = () => {
                 <p className="text-muted-foreground mb-6">
                   Affordable plans starting from ₹250/month. Contact us for special rates and packages.
                 </p>
-                <a href="tel:+917991304874">
+                <a href="tel:+918112708784">
                   <Button className="w-full btn-primary">Call to Enquire</Button>
                 </a>
               </div>
@@ -334,24 +348,40 @@ const HomePage = () => {
                   </div>
                   <div>
                     <h3 className="font-display text-xl font-semibold text-foreground mb-2">Address</h3>
-                    <p className="text-muted-foreground">
-                      74XH+3HW, Ramuvapur,<br />
-                      Mahmudabad, Uttar Pradesh 261203
-                    </p>
+                    <a 
+                      href="https://maps.app.goo.gl/QazeDSE8A4gdjDmU8?g_st=aw"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      View on Google Maps
+                    </a>
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 mb-6">
                   <div className="w-12 h-12 rounded-xl hero-gradient flex items-center justify-center flex-shrink-0">
                     <Phone className="w-6 h-6 text-primary-foreground" />
                   </div>
                   <div>
                     <h3 className="font-display text-xl font-semibold text-foreground mb-2">Contact</h3>
-                    <a 
-                      href="tel:+917991304874" 
-                      className="text-primary hover:underline text-lg font-medium"
-                    >
-                      +91 79913 04874
+                    <a href="tel:+918112708784" className="text-primary hover:underline text-lg font-medium block">
+                      +91 81127 08784
+                    </a>
+                    <a href="tel:+919795403039" className="text-primary hover:underline text-lg font-medium block">
+                      +91 9795403039
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl hero-gradient flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-6 h-6 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-xl font-semibold text-foreground mb-2">Email</h3>
+                    <a href="mailto:wisebrary@gmail.com" className="text-primary hover:underline text-lg font-medium">
+                      wisebrary@gmail.com
                     </a>
                   </div>
                 </div>
@@ -359,14 +389,14 @@ const HomePage = () => {
 
               <div className="card-elevated overflow-hidden">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3557.8!2d81.115!3d27.291!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjfCsDE3JzI3LjYiTiA4McKwMDYnNTQuMCJF!5e0!3m2!1sen!2sin!4v1600000000000!5m2!1sen!2sin"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3559.0!2d80.946!3d26.846!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjbCsDUwJzQ1LjYiTiA4MMKwNTYnNDUuNiJF!5e0!3m2!1sen!2sin!4v1600000000000!5m2!1sen!2sin"
                   width="100%"
                   height="100%"
-                  style={{ border: 0, minHeight: '250px' }}
+                  style={{ border: 0, minHeight: '300px' }}
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Library Location"
+                  title="Wisebrary Location"
                 />
               </div>
             </div>
@@ -379,12 +409,10 @@ const HomePage = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full hero-gradient flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img src={wisebraryLogo} alt="Wisebrary" className="w-10 h-10 rounded-full object-contain" />
               <div>
-                <h3 className="font-display text-lg font-bold">Shri Hanumant Library</h3>
-                <p className="text-sm text-sidebar-foreground/70">Mahmudabad's First Digital Library</p>
+                <h3 className="font-display text-lg font-bold">Wisebrary</h3>
+                <p className="text-sm text-sidebar-foreground/70">Lucknow's First Digital Library</p>
               </div>
             </div>
             
@@ -395,7 +423,7 @@ const HomePage = () => {
             </div>
 
             <p className="text-sm text-sidebar-foreground/50">
-              © {new Date().getFullYear()} Shri Hanumant Library. All rights reserved.
+              © {new Date().getFullYear()} Wisebrary. All rights reserved.
             </p>
           </div>
         </div>

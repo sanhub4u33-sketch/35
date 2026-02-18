@@ -1,31 +1,30 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBHlu5iaHQPI1b0g_MLZFfFE5vuWmDuWD0",
-  authDomain: "shri-hanumant-library.firebaseapp.com",
-  databaseURL: "https://shri-hanumant-library-default-rtdb.firebaseio.com",
-  projectId: "shri-hanumant-library",
-  storageBucket: "shri-hanumant-library.firebasestorage.app",
-  messagingSenderId: "962284702454",
-  appId: "1:962284702454:web:dee1487fe7f5688aaabad7",
-  measurementId: "G-T4QW51HL4L"
+  apiKey: "AIzaSyDXyj4UM3T5vQPyDko9riB3YxZZQI5C-Q8",
+  authDomain: "wisebray-library.firebaseapp.com",
+  databaseURL: "https://wisebray-library-default-rtdb.firebaseio.com",
+  projectId: "wisebray-library",
+  storageBucket: "wisebray-library.firebasestorage.app",
+  messagingSenderId: "952083057499",
+  appId: "1:952083057499:web:1f861d390352a2f834687e",
+  measurementId: "G-GQTK3LPDXQ"
 };
 
 const app = initializeApp(firebaseConfig);
 
-// Use initializeAuth with IndexedDB persistence (primary) and localStorage (fallback)
-// IndexedDB works better in PWA standalone mode
 export const auth = initializeAuth(app, {
   persistence: [indexedDBLocalPersistence, browserLocalPersistence]
 });
 
-// Secondary app for creating new users without signing out the current user
 const secondaryApp = initializeApp(firebaseConfig, 'SecondaryApp');
 export const secondaryAuth = initializeAuth(secondaryApp, {
   persistence: [indexedDBLocalPersistence, browserLocalPersistence]
 });
 
+export const firestore = getFirestore(app);
 export const database = getDatabase(app);
 export default app;
