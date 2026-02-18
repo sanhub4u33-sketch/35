@@ -69,9 +69,11 @@ const AdminLayout = ({ children, title, searchPlaceholder, onSearch }: AdminLayo
           {/* Logo */}
           <div className="p-6 border-b border-sidebar-border">
             <Link to="/" className="flex items-center gap-3">
-              <img src="/icons/wisebrary-logo.png" alt="Wisebrary" className="w-10 h-10 rounded-full object-contain" />
+              <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-primary/40 bg-white flex items-center justify-center">
+                <img src="/icons/wisebrary-logo.png" alt="Wisebrary" className="w-full h-full object-cover" />
+              </div>
               <div>
-                <h1 className="font-display text-lg font-bold text-sidebar-foreground">Wisebrary</h1>
+                <h1 className="font-display text-xl font-bold text-sidebar-foreground tracking-tight">Wisebrary</h1>
                 <p className="text-xs text-sidebar-foreground/60">Admin Panel</p>
               </div>
             </Link>

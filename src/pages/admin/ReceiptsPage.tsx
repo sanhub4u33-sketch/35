@@ -142,171 +142,201 @@ const ReceiptsPage = () => {
       ? format(new Date(due.paidDate), 'dd MMM yyyy')
       : 'N/A';
 
-    // Create PDF using jsPDF
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 20;
-    let yPos = 25;
+    let yPos = 20;
 
-    // Header - Library Name (Hindi)
-    pdf.setFontSize(22);
-    pdf.setTextColor(249, 115, 22);
-    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 8;
+    // ── Dark premium header background ──
+    pdf.setFillColor(15, 15, 15);
+    pdf.rect(0, 0, pageWidth, 52, 'F');
 
-    // Subtitle
-    pdf.setFontSize(10);
-    pdf.setTextColor(102, 102, 102);
-    pdf.text('74XH+3HW, Ramuvapur, Mahmudabad, Uttar Pradesh 261203', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 5;
-    pdf.text('Phone: +91 79913 04874 | Email: info@shrihanumantlibrary.com', pageWidth / 2, yPos, { align: 'center' });
+    // Gold accent bar at top
+    pdf.setFillColor(200, 155, 50);
+    pdf.rect(0, 0, pageWidth, 3, 'F');
+
+    // Library name – gold
+    pdf.setFontSize(24);
+    pdf.setTextColor(200, 155, 50);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('WISEBRARY', pageWidth / 2, yPos + 10, { align: 'center' });
+
+    // Sub-tagline – white
+    pdf.setFontSize(9);
+    pdf.setTextColor(180, 180, 180);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text("Lucknow's First Digital Library", pageWidth / 2, yPos + 18, { align: 'center' });
+    pdf.text('+91 81127 08784  |  wisebrary@gmail.com', pageWidth / 2, yPos + 24, { align: 'center' });
+
+    yPos += 38;
+
+    // ── Gold divider line ──
+    pdf.setDrawColor(200, 155, 50);
+    pdf.setLineWidth(0.8);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 10;
 
-    // Orange line
-    pdf.setDrawColor(249, 115, 22);
-    pdf.setLineWidth(1);
-    pdf.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 15;
-
-    // Receipt Title
-    pdf.setFontSize(18);
-    pdf.setTextColor(51, 51, 51);
+    // ── PAYMENT RECEIPT title ──
+    pdf.setFontSize(16);
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFont('helvetica', 'bold');
     pdf.text('PAYMENT RECEIPT', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 12;
+    yPos += 10;
 
-    // Receipt Number Box
-    pdf.setFillColor(255, 247, 237);
-    pdf.setDrawColor(249, 115, 22);
-    pdf.setLineWidth(0.5);
-    const receiptBoxWidth = 80;
-    const receiptBoxX = (pageWidth - receiptBoxWidth) / 2;
-    pdf.roundedRect(receiptBoxX, yPos - 6, receiptBoxWidth, 14, 3, 3, 'FD');
-    pdf.setFontSize(14);
-    pdf.setTextColor(234, 88, 12);
+    // Receipt Number pill – gold background
+    const pillW = 90;
+    const pillX = (pageWidth - pillW) / 2;
+    pdf.setFillColor(200, 155, 50);
+    pdf.roundedRect(pillX, yPos - 5, pillW, 12, 3, 3, 'F');
+    pdf.setFontSize(12);
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont('helvetica', 'bold');
     pdf.text(due.receiptNumber || 'N/A', pageWidth / 2, yPos + 3, { align: 'center' });
-    yPos += 20;
+    yPos += 18;
 
-    // Member Details Section
-    pdf.setFillColor(250, 250, 250);
-    pdf.setDrawColor(229, 229, 229);
-    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 45, 3, 3, 'FD');
+    // ── Member Details box ──
+    pdf.setFillColor(250, 249, 246);
+    pdf.setDrawColor(220, 200, 160);
+    pdf.setLineWidth(0.4);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 50, 3, 3, 'FD');
+    yPos += 7;
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 120, 60);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('▸  MEMBER DETAILS', margin + 6, yPos);
     yPos += 8;
 
-    pdf.setFontSize(10);
-    pdf.setTextColor(136, 136, 136);
-    pdf.text('MEMBER DETAILS', margin + 8, yPos);
-    yPos += 8;
+    const col1X = margin + 6;
+    const col2X = pageWidth / 2 + 6;
 
-    pdf.setFontSize(11);
-    pdf.setTextColor(26, 26, 26);
-    const col1X = margin + 8;
-    const col2X = pageWidth / 2 + 5;
-
-    pdf.setTextColor(136, 136, 136);
-    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
     pdf.text('Member Name', col1X, yPos);
     pdf.text('Email Address', col2X, yPos);
     yPos += 5;
-    pdf.setTextColor(26, 26, 26);
-    pdf.setFontSize(11);
+    pdf.setFontSize(10);
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
     pdf.text(due.memberName, col1X, yPos);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
     pdf.text(member?.email || 'N/A', col2X, yPos);
     yPos += 10;
 
-    pdf.setTextColor(136, 136, 136);
-    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
     pdf.text('Phone Number', col1X, yPos);
     pdf.text('Member ID', col2X, yPos);
     yPos += 5;
-    pdf.setTextColor(26, 26, 26);
-    pdf.setFontSize(11);
-    pdf.text(member?.phone || 'N/A', col1X, yPos);
-    pdf.text(member?.id?.slice(0, 8).toUpperCase() || 'N/A', col2X, yPos);
-    yPos += 15;
-
-    // Payment Details Section
-    pdf.setFillColor(250, 250, 250);
-    pdf.setDrawColor(229, 229, 229);
-    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 45, 3, 3, 'FD');
-    yPos += 8;
-
     pdf.setFontSize(10);
-    pdf.setTextColor(136, 136, 136);
-    pdf.text('PAYMENT DETAILS', margin + 8, yPos);
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(member?.phone || 'N/A', col1X, yPos);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.text(member?.id?.slice(0, 8).toUpperCase() || 'N/A', col2X, yPos);
+    yPos += 18;
+
+    // ── Payment Details box ──
+    pdf.setFillColor(250, 249, 246);
+    pdf.setDrawColor(220, 200, 160);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 50, 3, 3, 'FD');
+    yPos += 7;
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 120, 60);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('▸  PAYMENT DETAILS', margin + 6, yPos);
     yPos += 8;
 
-    pdf.setTextColor(136, 136, 136);
-    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
     pdf.text('Fee Period', col1X, yPos);
     pdf.text('Payment Date', col2X, yPos);
     yPos += 5;
-    pdf.setTextColor(26, 26, 26);
-    pdf.setFontSize(11);
+    pdf.setFontSize(10);
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
     pdf.text(periodText, col1X, yPos);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
     pdf.text(paidDateText, col2X, yPos);
     yPos += 10;
 
-    pdf.setTextColor(136, 136, 136);
-    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
     pdf.text('Payment Method', col1X, yPos);
     pdf.text('Status', col2X, yPos);
     yPos += 5;
-    pdf.setTextColor(26, 26, 26);
-    pdf.setFontSize(11);
+    pdf.setFontSize(10);
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
     pdf.text('Cash / Online', col1X, yPos);
     pdf.setTextColor(22, 163, 74);
-    pdf.text('Paid', col2X, yPos);
+    pdf.text('✓ PAID', col2X, yPos);
     yPos += 18;
 
-    // Amount Section - Orange gradient box
-    pdf.setFillColor(249, 115, 22);
-    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 40, 4, 4, 'F');
+    // ── Premium amount section – dark background + gold text ──
+    pdf.setFillColor(15, 15, 15);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 46, 4, 4, 'F');
+
+    // Gold top strip on amount box
+    pdf.setFillColor(200, 155, 50);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 4, 2, 2, 'F');
+    pdf.rect(margin, yPos + 2, pageWidth - 2 * margin, 2, 'F');
+    yPos += 12;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(160, 140, 100);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('TOTAL AMOUNT PAID', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
 
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(11);
-    pdf.text('TOTAL AMOUNT PAID', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 12;
-    pdf.setFontSize(28);
+    pdf.setFontSize(30);
+    pdf.setTextColor(200, 155, 50);
+    pdf.setFont('helvetica', 'bold');
     pdf.text(`Rs. ${amount.toLocaleString('en-IN')}`, pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
-    pdf.setFontSize(10);
-    pdf.text(`Rupees ${numberToWords(amount)} Only`, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 25;
 
-    // Signature Section
-    pdf.setTextColor(51, 51, 51);
-    pdf.setDrawColor(51, 51, 51);
+    pdf.setFontSize(9);
+    pdf.setTextColor(180, 180, 180);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Rupees ${numberToWords(amount)} Only`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 22;
+
+    // ── Signature Section ──
+    pdf.setDrawColor(180, 180, 180);
     pdf.setLineWidth(0.3);
-    
     const sigY = yPos + 20;
     pdf.line(margin + 10, sigY, margin + 70, sigY);
     pdf.line(pageWidth - margin - 70, sigY, pageWidth - margin - 10, sigY);
-    
-    pdf.setFontSize(9);
-    pdf.setTextColor(102, 102, 102);
-    pdf.text('Member Signature', margin + 40, sigY + 6, { align: 'center' });
-    pdf.text('Authorized Signature', pageWidth - margin - 40, sigY + 6, { align: 'center' });
-    yPos = sigY + 20;
-
-    // Footer
-    pdf.setDrawColor(229, 229, 229);
-    pdf.setLineWidth(0.3);
-    pdf.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 8;
-
-    pdf.setFontSize(10);
-    pdf.setTextColor(102, 102, 102);
-    pdf.text('Thank you for being a valued member of Shri Hanumant Library!', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 5;
     pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text('Member Signature', margin + 40, sigY + 5, { align: 'center' });
+    pdf.text('Authorized Signature', pageWidth - margin - 40, sigY + 5, { align: 'center' });
+    yPos = sigY + 16;
+
+    // ── Footer ──
+    pdf.setDrawColor(200, 155, 50);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 7;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text('Thank you for being a valued member of Wisebrary!', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(140, 140, 140);
     pdf.text('This is a computer-generated receipt and does not require a physical signature.', pageWidth / 2, yPos, { align: 'center' });
     yPos += 4;
-    pdf.text('For any queries, please contact us at +91 79913 04874', pageWidth / 2, yPos, { align: 'center' });
+    pdf.text('For queries: +91 81127 08784 | wisebrary@gmail.com', pageWidth / 2, yPos, { align: 'center' });
 
-    // No watermark - removed per user request
-
-    // Save PDF immediately
     pdf.save(`Receipt-${due.receiptNumber}.pdf`);
   };
 
@@ -436,48 +466,55 @@ const ReceiptsPage = () => {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredReceipts.map((due) => (
-            <div key={due.id} className="card-elevated p-5">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Receipt</p>
-                  <p className="font-mono font-semibold text-primary">{due.receiptNumber}</p>
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-success" />
-                </div>
-              </div>
+            <div key={due.id} className="group relative overflow-hidden rounded-xl border border-border/60 bg-card shadow-soft hover:shadow-elevated transition-all duration-300 hover:-translate-y-1">
+              {/* Premium gold top bar */}
+              <div className="h-1 w-full bg-gradient-to-r from-primary via-accent to-primary" />
 
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Member</span>
-                  <span className="font-medium">{due.memberName}</span>
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-1">Receipt</p>
+                    <p className="font-mono font-bold text-primary text-base">{due.receiptNumber}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <FileText className="w-4 h-4 text-primary" />
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Period</span>
-                  <span className="text-sm">
-                    {safeParseISO(due.periodStart) && safeParseISO(due.periodEnd)
-                      ? `${format(parseISO(due.periodStart), 'dd MMM')} - ${format(parseISO(due.periodEnd), 'dd MMM')}`
-                      : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Amount</span>
-                  <span className="font-bold text-lg">₹{due.amount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Paid On</span>
-                  <span className="text-sm">{due.paidDate ? format(new Date(due.paidDate), 'dd MMM yyyy') : 'N/A'}</span>
-                </div>
-              </div>
 
-              <Button 
-                variant="outline" 
-                className="w-full gap-2"
-                onClick={() => downloadReceiptPDF(due)}
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </Button>
+                <div className="space-y-2.5 mb-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Member</span>
+                    <span className="font-semibold text-sm text-foreground">{due.memberName}</span>
+                  </div>
+                  <div className="h-px bg-border/50" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Period</span>
+                    <span className="text-xs text-foreground/80">
+                      {safeParseISO(due.periodStart) && safeParseISO(due.periodEnd)
+                        ? `${format(parseISO(due.periodStart), 'dd MMM')} – ${format(parseISO(due.periodEnd), 'dd MMM yyyy')}`
+                        : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="h-px bg-border/50" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Amount</span>
+                    <span className="font-bold text-xl text-foreground">₹{Number(due.amount).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="h-px bg-border/50" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Paid On</span>
+                    <span className="text-xs text-foreground/80">{due.paidDate ? format(new Date(due.paidDate), 'dd MMM yyyy') : 'N/A'}</span>
+                  </div>
+                </div>
+
+                <Button 
+                  className="w-full gap-2 btn-primary text-sm font-semibold"
+                  onClick={() => downloadReceiptPDF(due)}
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </Button>
+              </div>
             </div>
           ))}
         </div>
