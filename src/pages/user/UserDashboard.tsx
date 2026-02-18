@@ -167,77 +167,216 @@ const UserDashboard = () => {
 
   const downloadUserReceipt = (due: typeof memberDues[0]) => {
     const amount = Number(due.amount) || 0;
-    const periodStart = due.periodStart ? parseISO(due.periodStart) : null;
-    const periodEnd = due.periodEnd ? parseISO(due.periodEnd) : null;
-    const periodText = periodStart && periodEnd ? `${format(periodStart, 'dd MMM')} - ${format(periodEnd, 'dd MMM yyyy')}` : 'N/A';
+
+    const safeParseISO = (value?: string) => {
+      if (!value) return null;
+      try { return parseISO(value); } catch { return null; }
+    };
+
+    const periodStart = safeParseISO(due.periodStart);
+    const periodEnd = safeParseISO(due.periodEnd);
+    const periodText = periodStart && periodEnd
+      ? `${format(periodStart, 'dd MMM')} - ${format(periodEnd, 'dd MMM yyyy')}`
+      : 'N/A';
     const paidDateText = due.paidDate ? format(new Date(due.paidDate), 'dd MMM yyyy') : 'N/A';
+
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 20;
-    let yPos = 25;
-    pdf.setFontSize(22); pdf.setTextColor(249, 115, 22);
-    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' }); yPos += 8;
-    pdf.setFontSize(10); pdf.setTextColor(102, 102, 102);
-    pdf.text('74XH+3HW, Ramuvapur, Mahmudabad, Uttar Pradesh 261203', pageWidth / 2, yPos, { align: 'center' }); yPos += 5;
-    pdf.text('Phone: +91 79913 04874 | Email: info@shrihanumantlibrary.com', pageWidth / 2, yPos, { align: 'center' }); yPos += 10;
-    pdf.setDrawColor(249, 115, 22); pdf.setLineWidth(1);
-    pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 15;
-    pdf.setFontSize(18); pdf.setTextColor(51, 51, 51);
-    pdf.text('PAYMENT RECEIPT', pageWidth / 2, yPos, { align: 'center' }); yPos += 12;
-    pdf.setFillColor(255, 247, 237); pdf.setDrawColor(249, 115, 22); pdf.setLineWidth(0.5);
-    const boxW = 80, boxX = (pageWidth - boxW) / 2;
-    pdf.roundedRect(boxX, yPos - 6, boxW, 14, 3, 3, 'FD');
-    pdf.setFontSize(14); pdf.setTextColor(234, 88, 12);
-    pdf.text(due.receiptNumber || 'N/A', pageWidth / 2, yPos + 3, { align: 'center' }); yPos += 20;
-    const col1X = margin + 8, col2X = pageWidth / 2 + 5;
-    pdf.setFillColor(250, 250, 250); pdf.setDrawColor(229, 229, 229);
-    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 45, 3, 3, 'FD'); yPos += 8;
-    pdf.setFontSize(10); pdf.setTextColor(136, 136, 136);
-    pdf.text('MEMBER DETAILS', col1X, yPos); yPos += 8;
-    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
-    pdf.text('Member Name', col1X, yPos); pdf.text('Email Address', col2X, yPos); yPos += 5;
-    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
-    pdf.text(memberData?.name || '', col1X, yPos); pdf.text(memberData?.email || 'N/A', col2X, yPos); yPos += 10;
-    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
-    pdf.text('Phone Number', col1X, yPos); pdf.text('Member ID', col2X, yPos); yPos += 5;
-    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
-    pdf.text(memberData?.phone || 'N/A', col1X, yPos); pdf.text(memberData?.id?.slice(0, 8).toUpperCase() || 'N/A', col2X, yPos); yPos += 15;
-    pdf.setFillColor(250, 250, 250); pdf.setDrawColor(229, 229, 229);
-    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 45, 3, 3, 'FD'); yPos += 8;
-    pdf.setFontSize(10); pdf.setTextColor(136, 136, 136);
-    pdf.text('PAYMENT DETAILS', col1X, yPos); yPos += 8;
-    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
-    pdf.text('Fee Period', col1X, yPos); pdf.text('Payment Date', col2X, yPos); yPos += 5;
-    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
-    pdf.text(periodText, col1X, yPos); pdf.text(paidDateText, col2X, yPos); yPos += 10;
-    pdf.setFontSize(9); pdf.setTextColor(136, 136, 136);
-    pdf.text('Payment Method', col1X, yPos); pdf.text('Status', col2X, yPos); yPos += 5;
-    pdf.setFontSize(11); pdf.setTextColor(26, 26, 26);
-    pdf.text('Cash / Online', col1X, yPos);
-    pdf.setTextColor(22, 163, 74); pdf.text('Paid', col2X, yPos); yPos += 18;
-    pdf.setFillColor(249, 115, 22);
-    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 40, 4, 4, 'F'); yPos += 10;
-    pdf.setTextColor(255, 255, 255); pdf.setFontSize(11);
-    pdf.text('TOTAL AMOUNT PAID', pageWidth / 2, yPos, { align: 'center' }); yPos += 12;
-    pdf.setFontSize(28);
-    pdf.text(`Rs. ${amount.toLocaleString('en-IN')}`, pageWidth / 2, yPos, { align: 'center' }); yPos += 10;
+    let yPos = 20;
+
+    // ── Light warm header background ──
+    pdf.setFillColor(255, 252, 245);
+    pdf.rect(0, 0, pageWidth, 52, 'F');
+
+    // Gold accent bar at top
+    pdf.setFillColor(200, 155, 50);
+    pdf.rect(0, 0, pageWidth, 3, 'F');
+
+    // Library name – rich gold/amber
+    pdf.setFontSize(24);
+    pdf.setTextColor(160, 110, 20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('WISEBRARY', pageWidth / 2, yPos + 10, { align: 'center' });
+
+    // Sub-tagline – warm grey
+    pdf.setFontSize(9);
+    pdf.setTextColor(120, 100, 70);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text("Lucknow's First Digital Library", pageWidth / 2, yPos + 18, { align: 'center' });
+    pdf.text('+91 81127 08784  |  wisebrary@gmail.com', pageWidth / 2, yPos + 24, { align: 'center' });
+
+    yPos += 38;
+
+    // ── Gold divider line ──
+    pdf.setDrawColor(200, 155, 50);
+    pdf.setLineWidth(0.8);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 10;
+
+    // ── PAYMENT RECEIPT title ──
+    pdf.setFontSize(16);
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('PAYMENT RECEIPT', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    // Receipt Number pill – gold background
+    const pillW = 90;
+    const pillX = (pageWidth - pillW) / 2;
+    pdf.setFillColor(200, 155, 50);
+    pdf.roundedRect(pillX, yPos - 5, pillW, 12, 3, 3, 'F');
+    pdf.setFontSize(12);
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(due.receiptNumber || 'N/A', pageWidth / 2, yPos + 3, { align: 'center' });
+    yPos += 18;
+
+    const col1X = margin + 6;
+    const col2X = pageWidth / 2 + 6;
+
+    // ── Member Details box ──
+    pdf.setFillColor(250, 249, 246);
+    pdf.setDrawColor(220, 200, 160);
+    pdf.setLineWidth(0.4);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 50, 3, 3, 'FD');
+    yPos += 7;
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 120, 60);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('▸  MEMBER DETAILS', col1X, yPos);
+    yPos += 8;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text('Member Name', col1X, yPos);
+    pdf.text('Email Address', col2X, yPos);
+    yPos += 5;
     pdf.setFontSize(10);
-    pdf.text(`Rupees ${numberToWords(amount)} Only`, pageWidth / 2, yPos, { align: 'center' }); yPos += 25;
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(memberData?.name || '', col1X, yPos);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.text(memberData?.email || 'N/A', col2X, yPos);
+    yPos += 10;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text('Phone Number', col1X, yPos);
+    pdf.text('Member ID', col2X, yPos);
+    yPos += 5;
+    pdf.setFontSize(10);
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(memberData?.phone || 'N/A', col1X, yPos);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.text(memberData?.id?.slice(0, 8).toUpperCase() || 'N/A', col2X, yPos);
+    yPos += 18;
+
+    // ── Payment Details box ──
+    pdf.setFillColor(250, 249, 246);
+    pdf.setDrawColor(220, 200, 160);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 50, 3, 3, 'FD');
+    yPos += 7;
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 120, 60);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('▸  PAYMENT DETAILS', col1X, yPos);
+    yPos += 8;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text('Fee Period', col1X, yPos);
+    pdf.text('Payment Date', col2X, yPos);
+    yPos += 5;
+    pdf.setFontSize(10);
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(periodText, col1X, yPos);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.text(paidDateText, col2X, yPos);
+    yPos += 10;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text('Payment Method', col1X, yPos);
+    pdf.text('Status', col2X, yPos);
+    yPos += 5;
+    pdf.setFontSize(10);
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Cash / Online', col1X, yPos);
+    pdf.setTextColor(22, 163, 74);
+    pdf.text('✓ PAID', col2X, yPos);
+    yPos += 18;
+
+    // ── Premium amount section – warm cream background + gold text ──
+    pdf.setFillColor(255, 248, 225);
+    pdf.setDrawColor(200, 155, 50);
+    pdf.setLineWidth(0.8);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 46, 4, 4, 'FD');
+
+    // Gold top strip on amount box
+    pdf.setFillColor(200, 155, 50);
+    pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 4, 2, 2, 'F');
+    pdf.rect(margin, yPos + 2, pageWidth - 2 * margin, 2, 'F');
+    yPos += 12;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(140, 100, 30);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('TOTAL AMOUNT PAID', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    pdf.setFontSize(30);
+    pdf.setTextColor(160, 110, 20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`Rs. ${amount.toLocaleString('en-IN')}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(120, 90, 40);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Rupees ${numberToWords(amount)} Only`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 22;
+
+    // ── Signature Section ──
+    pdf.setDrawColor(180, 180, 180);
+    pdf.setLineWidth(0.3);
     const sigY = yPos + 20;
-    pdf.setTextColor(51, 51, 51); pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
     pdf.line(margin + 10, sigY, margin + 70, sigY);
     pdf.line(pageWidth - margin - 70, sigY, pageWidth - margin - 10, sigY);
-    pdf.setFontSize(9); pdf.setTextColor(102, 102, 102);
-    pdf.text('Member Signature', margin + 40, sigY + 6, { align: 'center' });
-    pdf.text('Authorized Signature', pageWidth - margin - 40, sigY + 6, { align: 'center' });
-    yPos = sigY + 20;
-    pdf.setDrawColor(229, 229, 229); pdf.setLineWidth(0.3);
-    pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 8;
-    pdf.setFontSize(10); pdf.setTextColor(102, 102, 102);
-    pdf.text('Thank you for being a valued member of Shri Hanumant Library!', pageWidth / 2, yPos, { align: 'center' }); yPos += 5;
     pdf.setFontSize(8);
-    pdf.text('This is a computer-generated receipt and does not require a physical signature.', pageWidth / 2, yPos, { align: 'center' }); yPos += 4;
-    pdf.text('For any queries, please contact us at +91 79913 04874', pageWidth / 2, yPos, { align: 'center' });
+    pdf.setTextColor(120, 120, 120);
+    pdf.text('Member Signature', margin + 40, sigY + 5, { align: 'center' });
+    pdf.text('Authorized Signature', pageWidth - margin - 40, sigY + 5, { align: 'center' });
+    yPos = sigY + 16;
+
+    // ── Footer ──
+    pdf.setDrawColor(200, 155, 50);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 7;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text('Thank you for being a valued member of Wisebrary!', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(140, 140, 140);
+    pdf.text('This is a computer-generated receipt and does not require a physical signature.', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 4;
+    pdf.text('For queries: +91 81127 08784 | wisebrary@gmail.com', pageWidth / 2, yPos, { align: 'center' });
+
     pdf.save(`Receipt-${due.receiptNumber}.pdf`);
   };
 
