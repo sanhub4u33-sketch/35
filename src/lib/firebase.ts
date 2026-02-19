@@ -16,13 +16,22 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// In PWA standalone mode, indexedDB can sometimes be blocked or fail.
+// Use browserLocalPersistence as primary fallback to prevent white screen.
+const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+  (window.navigator as any).standalone === true;
+
 export const auth = initializeAuth(app, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+  persistence: isPWA
+    ? [browserLocalPersistence, indexedDBLocalPersistence]
+    : [indexedDBLocalPersistence, browserLocalPersistence]
 });
 
 const secondaryApp = initializeApp(firebaseConfig, 'SecondaryApp');
 export const secondaryAuth = initializeAuth(secondaryApp, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+  persistence: isPWA
+    ? [browserLocalPersistence, indexedDBLocalPersistence]
+    : [indexedDBLocalPersistence, browserLocalPersistence]
 });
 
 export const firestore = getFirestore(app);
