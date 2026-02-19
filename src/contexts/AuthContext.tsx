@@ -56,11 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const readyPromise =
           typeof (auth as any).authStateReady === 'function'
             ? (auth as any).authStateReady()
-            : new Promise<void>((resolve) => setTimeout(resolve, 1500));
+            : new Promise<void>((resolve) => setTimeout(resolve, 1000));
 
+        // Reduced timeout to 5s (was 12s) to prevent long white screen in PWA
         await Promise.race([
           readyPromise,
-          new Promise<void>((resolve) => setTimeout(resolve, 12000)),
+          new Promise<void>((resolve) => setTimeout(resolve, 5000)),
         ]);
 
         if (!isMounted) return;
