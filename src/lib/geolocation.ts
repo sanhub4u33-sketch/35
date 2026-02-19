@@ -1,6 +1,6 @@
-// Shri Hanumant Library coordinates (from Google Maps embed on homepage)
-const LIBRARY_LAT = 27.291;
-const LIBRARY_LNG = 81.115;
+// Wisebrary coordinates (from Google Maps)
+const LIBRARY_LAT = 26.8722229;
+const LIBRARY_LNG = 80.8975073;
 const ALLOWED_RADIUS_METERS = 150; // 150m radius
 
 /**

@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const determineUserRole = useCallback(async (currentUser: User): Promise<'admin' | 'user' | null> => {
     try {
-      if (currentUser.email === 'wisebray@gmail.com') {
+      if (currentUser.email === 'wisebrary@gmail.com') {
         return 'admin';
       }
       // Check if user exists as a member in Firestore

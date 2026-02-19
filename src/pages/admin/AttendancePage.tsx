@@ -161,7 +161,7 @@ const AttendancePage = () => {
     // Header
     pdf.setFontSize(20);
     pdf.setTextColor(249, 115, 22);
-    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' });
+    pdf.text('Wisebrary', pageWidth / 2, yPos, { align: 'center' });
     yPos += 7;
 
     pdf.setFontSize(10);

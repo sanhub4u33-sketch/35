@@ -487,7 +487,7 @@ const UserDashboard = () => {
                 Welcome, {memberData.name.split(' ')[0]}!
               </h2>
               <p className="text-sm text-muted-foreground">
-                Seat: {memberData.seatNumber || 'N/A'} • Shift: {memberData.shift || 'Full Day'}
+                Seat: {memberData.seatNumber || 'N/A'} • Plan: {memberData.plan || 'N/A'}
               </p>
             </div>
           </div>

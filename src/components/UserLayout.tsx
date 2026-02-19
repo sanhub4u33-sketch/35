@@ -62,7 +62,7 @@ const UserLayout = ({ children, memberData, onOpenChat, chatEnabled }: UserLayou
                 <img src="/icons/wisebrary-logo.png" alt="Wisebrary" className="w-full h-full object-cover" />
               </div>
               <div>
-                <h1 className="font-display text-xl font-bold text-sidebar-foreground tracking-tight">Wisebrary</h1>
+                <h1 className="font-display text-xl font-bold text-sidebar-foreground tracking-tight">wisebrary</h1>
                 <p className="text-xs text-sidebar-foreground/60">Member Portal</p>
               </div>
             </Link>
@@ -117,7 +117,7 @@ const UserLayout = ({ children, memberData, onOpenChat, chatEnabled }: UserLayou
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border h-14 flex items-center px-4 gap-3">
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border h-14 flex items-center px-4 gap-3 will-change-transform" style={{ transform: 'translateZ(0)' }}>
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 hover:bg-secondary rounded-lg"

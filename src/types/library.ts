@@ -7,9 +7,10 @@ export interface Member {
   joinDate: string;
   seatNumber?: string;
   aadhaarDoc?: string; // base64 encoded document
-  shift?: string;
+  plan?: string;
   monthlyFee: number;
   status: 'active' | 'inactive';
+  reactivatedAt?: string; // ISO date when member was reactivated
   createdAt: string;
   profilePic?: string; // base64 compressed image
   password?: string; // stored for admin to view/edit

@@ -172,61 +172,73 @@
    return { notifications, unreadCount, markAsRead, markAllAsRead };
  };
  
- export const useAdminNotifications = () => {
-   const [members, setMembers] = useState<Member[]>([]);
+export const useAdminNotifications = () => {
+  const [members, setMembers] = useState<Member[]>([]);
+
+  useEffect(() => {
+    // Members are stored in Firestore, not Realtime Database
+    const membersCol = collection(firestore, 'members');
+    const unsub = onSnapshot(membersCol, (snapshot) => {
+      const memberList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Member[];
+      setMembers(memberList);
+    });
+
+    return () => unsub();
+  }, []);
  
-   useEffect(() => {
-     const membersRef = ref(database, 'members');
-     const unsub = onValue(membersRef, (snapshot) => {
-       if (snapshot.exists()) {
-         const data = snapshot.val();
-         const memberList = Object.entries(data).map(([id, m]: [string, any]) => ({
-           id,
-           ...m
-         }));
-         setMembers(memberList);
-       }
-     });
- 
-     return () => unsub();
-   }, []);
- 
-   const sendNotification = async (title: string, message: string, recipientId: string) => {
-     const notifRef = ref(database, 'notifications');
-     await push(notifRef, {
-       title,
-       message,
-       recipientId, // 'all' or specific memberId
-       createdAt: new Date().toISOString(),
-       readBy: {}
-     });
-   };
+  const sendNotification = async (title: string, message: string, recipientId: string) => {
+    try {
+      const notifRef = ref(database, 'notifications');
+      await push(notifRef, {
+        title,
+        message,
+        recipientId,
+        createdAt: new Date().toISOString(),
+        readBy: {}
+      });
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+      throw error;
+    }
+  };
  
    return { members, sendNotification };
  };
  
- export const useChatSettings = () => {
-   const [chatEnabled, setChatEnabled] = useState(true);
- 
-   useEffect(() => {
-     const settingsRef = ref(database, 'settings');
-     const unsub = onValue(settingsRef, (snapshot) => {
-       if (snapshot.exists()) {
-         const settings = snapshot.val();
-         setChatEnabled(settings.chatEnabled !== false);
-       } else {
-         setChatEnabled(true);
-       }
-     });
- 
-     return () => unsub();
-   }, []);
- 
-   const toggleChat = async (enabled: boolean) => {
-     const settingsRef = ref(database, 'settings');
-     await update(settingsRef, { chatEnabled: enabled });
-     setChatEnabled(enabled);
-   };
- 
-   return { chatEnabled, toggleChat };
- };
+export const useChatSettings = () => {
+  const [chatEnabled, setChatEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const settingsRef = ref(database, 'settings');
+    const unsub = onValue(settingsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const settings = snapshot.val();
+        setChatEnabled(settings.chatEnabled !== false);
+      } else {
+        setChatEnabled(true);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error('Error listening to settings:', error);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const toggleChat = async (enabled: boolean) => {
+    const settingsRef = ref(database, 'settings/chatEnabled');
+    try {
+      await set(settingsRef, enabled);
+    } catch (error) {
+      console.error('Failed to toggle chat:', error);
+      throw error;
+    }
+  };
+
+  return { chatEnabled, loading, toggleChat };
+};

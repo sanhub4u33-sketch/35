@@ -73,7 +73,7 @@ const AdminLayout = ({ children, title, searchPlaceholder, onSearch }: AdminLayo
                 <img src="/icons/wisebrary-logo.png" alt="Wisebrary" className="w-full h-full object-cover" />
               </div>
               <div>
-                <h1 className="font-display text-xl font-bold text-sidebar-foreground tracking-tight">Wisebrary</h1>
+                <h1 className="font-display text-xl font-bold text-sidebar-foreground tracking-tight">wisebrary</h1>
                 <p className="text-xs text-sidebar-foreground/60">Admin Panel</p>
               </div>
             </Link>
@@ -113,7 +113,7 @@ const AdminLayout = ({ children, title, searchPlaceholder, onSearch }: AdminLayo
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border will-change-transform" style={{ transform: 'translateZ(0)' }}>
           <div className="flex items-center justify-between px-4 lg:px-8 py-4">
             <div className="flex items-center gap-4">
               <button 

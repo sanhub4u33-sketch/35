@@ -91,7 +91,7 @@ const DuesPage = () => {
     const margin = 20;
     let yPos = 25;
     pdf.setFontSize(22); pdf.setTextColor(249, 115, 22);
-    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' }); yPos += 8;
+    pdf.text('Wisebrary', pageWidth / 2, yPos, { align: 'center' }); yPos += 8;
     pdf.setFontSize(10); pdf.setTextColor(102, 102, 102);
     pdf.text('74XH+3HW, Ramuvapur, Mahmudabad, Uttar Pradesh 261203', pageWidth / 2, yPos, { align: 'center' }); yPos += 5;
     pdf.text('Phone: +91 79913 04874 | Email: info@shrihanumantlibrary.com', pageWidth / 2, yPos, { align: 'center' }); yPos += 10;
@@ -149,7 +149,7 @@ const DuesPage = () => {
     pdf.setDrawColor(229, 229, 229); pdf.setLineWidth(0.3);
     pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 8;
     pdf.setFontSize(10); pdf.setTextColor(102, 102, 102);
-    pdf.text('Thank you for being a valued member of Shri Hanumant Library!', pageWidth / 2, yPos, { align: 'center' }); yPos += 5;
+    pdf.text('Thank you for being a valued member of Wisebrary!', pageWidth / 2, yPos, { align: 'center' }); yPos += 5;
     pdf.setFontSize(8);
     pdf.text('This is a computer-generated receipt and does not require a physical signature.', pageWidth / 2, yPos, { align: 'center' }); yPos += 4;
     pdf.text('For any queries, please contact us at +91 79913 04874', pageWidth / 2, yPos, { align: 'center' });
@@ -366,7 +366,7 @@ const DuesPage = () => {
     // Header
     pdf.setFontSize(20);
     pdf.setTextColor(249, 115, 22);
-    pdf.text('Shri Hanumant Library', pageWidth / 2, yPos, { align: 'center' });
+    pdf.text('Wisebrary', pageWidth / 2, yPos, { align: 'center' });
     yPos += 7;
 
     pdf.setFontSize(10);

@@ -264,7 +264,15 @@ const AdminDashboard = () => {
             </div>
             <Switch 
               checked={chatEnabled} 
-              onCheckedChange={toggleChat}
+              onCheckedChange={async (checked) => {
+                try {
+                  await toggleChat(checked);
+                  toast.success(checked ? 'Chat enabled' : 'Chat disabled');
+                } catch (error) {
+                  toast.error('Failed to toggle chat. Check Realtime Database rules.');
+                  console.error('Toggle chat error:', error);
+                }
+              }}
             />
           </div>
         </div>

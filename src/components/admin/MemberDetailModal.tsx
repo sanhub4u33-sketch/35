@@ -11,7 +11,10 @@ import {
   AlertTriangle,
   Plus,
   Trash2,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,14 +31,30 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Member, FeeRecord, AttendanceRecord } from '@/types/library';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths } from 'date-fns';
 import { toast } from 'sonner';
 import { doc, updateDoc } from 'firebase/firestore';
 import { firestore, auth } from '@/lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { cn } from '@/lib/utils';
+
+const LIBRARY_PLANS = [
+  { id: '6hr-1m', label: '6 Hours – 1 Month', fee: 650 },
+  { id: '6hr-2m', label: '6 Hours – 2 Months', fee: 1200 },
+  { id: '6hr-3m', label: '6 Hours – 3 Months', fee: 1650 },
+  { id: '12hr-1m', label: '12 Hours – 1 Month', fee: 1200 },
+  { id: '12hr-2m', label: '12 Hours – 2 Months', fee: 2200 },
+  { id: '12hr-3m', label: '12 Hours – 3 Months', fee: 3000 },
+];
 
 interface MemberDetailModalProps {
   member: Member | null;
@@ -53,6 +72,7 @@ interface MemberDetailModalProps {
   }) => Promise<string>;
   onMarkDuePaid?: (dueId: string, memberName: string, amount: number) => Promise<string>;
   onDeleteDue?: (dueId: string) => Promise<void>;
+  onUpdateMember?: (id: string, updates: Partial<Member>) => Promise<void>;
 }
 
 const MemberDetailModal = ({ 
@@ -63,7 +83,8 @@ const MemberDetailModal = ({
   memberAttendance,
   onRecordPayment,
   onMarkDuePaid,
-  onDeleteDue
+  onDeleteDue,
+  onUpdateMember
 }: MemberDetailModalProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -74,8 +95,9 @@ const MemberDetailModal = ({
     address: '',
     seatNumber: '',
     monthlyFee: 500,
+    plan: '',
   });
-  const [currentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [sendingReset, setSendingReset] = useState(false);
   
   // Add payment dialog state
@@ -123,14 +145,21 @@ const MemberDetailModal = ({
     );
   };
 
-  // Stats calculations
+  // Filter attendance for current calendar month
+  const thisMonthAttendance = memberAttendance.filter(
+    a => a.date.startsWith(format(currentMonth, 'yyyy-MM'))
+  );
+
+  // Stats calculations — recalculate when currentMonth changes
   const stats = useMemo(() => {
-    const thisMonthAttendance = memberAttendance.filter(
-      a => a.date.startsWith(format(currentMonth, 'yyyy-MM'))
-    );
+    const today = new Date();
+    const isCurrentMonth = format(currentMonth, 'yyyy-MM') === format(today, 'yyyy-MM');
+    const thisMonthDays = new Set(thisMonthAttendance.map(a => a.date)).size;
+    const totalDaysInMonth = endOfMonth(currentMonth).getDate();
+    const relevantDays = isCurrentMonth ? today.getDate() : totalDaysInMonth;
+    const attendanceRate = relevantDays > 0 ? Math.round((thisMonthDays / relevantDays) * 100) : 0;
     
     const totalDaysPresent = new Set(memberAttendance.map(a => a.date)).size;
-    const thisMonthDays = new Set(thisMonthAttendance.map(a => a.date)).size;
     
     // Calculate average time spent
     const sessionsWithDuration = memberAttendance.filter(a => a.duration);
@@ -146,13 +175,14 @@ const MemberDetailModal = ({
     return {
       totalDaysPresent,
       thisMonthDays,
+      attendanceRate,
       avgDuration,
       totalPaid,
       totalPending,
       pendingCount: pendingDues.length,
       totalPayments: paidDues.length,
     };
-  }, [memberAttendance, memberDues, currentMonth]);
+  }, [memberAttendance, memberDues, currentMonth, thisMonthAttendance]);
 
   const handleEdit = () => {
     if (!member) return;
@@ -163,6 +193,7 @@ const MemberDetailModal = ({
       address: member.address || '',
       seatNumber: member.seatNumber || '',
       monthlyFee: member.monthlyFee,
+      plan: member.plan || '',
     });
     setIsEditing(true);
   };
@@ -172,14 +203,28 @@ const MemberDetailModal = ({
 
     setIsSaving(true);
     try {
-      const memberRef = doc(firestore, 'members', member.id);
-      await updateDoc(memberRef, {
-        email: editData.email,
+      const updates: any = {
         phone: editData.phone,
         address: editData.address,
         seatNumber: editData.seatNumber,
         monthlyFee: editData.monthlyFee,
-      });
+      };
+      
+      // If plan changed, save it (applies to next dues)
+      if (editData.plan && editData.plan !== member.plan) {
+        const plan = LIBRARY_PLANS.find(p => p.id === editData.plan);
+        if (plan) {
+          updates.plan = editData.plan;
+          updates.monthlyFee = plan.fee;
+        }
+      }
+
+      if (onUpdateMember) {
+        await onUpdateMember(member.id, updates);
+      } else {
+        const memberRef = doc(firestore, 'members', member.id);
+        await updateDoc(memberRef, updates);
+      }
 
       toast.success('Member updated successfully');
       setIsEditing(false);
@@ -293,10 +338,34 @@ const MemberDetailModal = ({
 
   if (!member) return null;
 
+  const planLabel = member.plan ? LIBRARY_PLANS.find(p => p.id === member.plan)?.label || member.plan : 'N/A';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto p-0 sm:p-6 sm:rounded-lg rounded-none border-0 sm:border sm:w-[95vw]">
+        {/* Mobile header */}
+        <div className="sticky top-0 z-10 bg-background border-b border-border p-4 flex items-center gap-3 sm:hidden">
+          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="h-8 w-8">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h2 className="font-display text-lg font-semibold truncate">{member.name}</h2>
+          <div className="ml-auto">
+            {!isEditing ? (
+              <Button variant="outline" size="sm" onClick={handleEdit} className="gap-1.5 h-8 text-xs">
+                <Edit className="w-3.5 h-3.5" />
+                Edit
+              </Button>
+            ) : (
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5 btn-primary h-8 text-xs">
+                <Save className="w-3.5 h-3.5" />
+                {isSaving ? 'Saving...' : 'Save'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop header */}
+        <DialogHeader className="hidden sm:block">
           <DialogTitle className="font-display flex items-center justify-between">
             <span>Member Details</span>
             {!isEditing ? (
@@ -313,7 +382,7 @@ const MemberDetailModal = ({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 p-4 sm:py-4 sm:px-0">
           {/* Profile Header */}
           <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-secondary/50 rounded-xl">
             <div className="w-20 h-20 rounded-full hero-gradient flex items-center justify-center text-primary-foreground text-3xl font-bold">
@@ -328,13 +397,18 @@ const MemberDetailModal = ({
               <p className="text-muted-foreground">
                 Member since {safeParseISO(member.joinDate) ? format(parseISO(member.joinDate), 'MMMM d, yyyy') : 'N/A'}
               </p>
-              <span className={`inline-block mt-2 text-sm px-3 py-1 rounded-full ${
-                member.status === 'active' 
-                  ? 'bg-success/10 text-success' 
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {member.status}
-              </span>
+              <div className="flex items-center gap-2 justify-center sm:justify-start mt-2">
+                <span className={`inline-block text-sm px-3 py-1 rounded-full ${
+                  member.status === 'active' 
+                    ? 'bg-success/10 text-success' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {member.status}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  Plan: {planLabel}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -344,7 +418,7 @@ const MemberDetailModal = ({
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
                 <p>
-                  Member login password can't be changed securely from the admin panel in this build.
+                  Member login password can't be changed securely from the admin panel.
                   Use <span className="font-medium">Reset Password</span> to send a reset link.
                 </p>
                 <Button
@@ -365,14 +439,14 @@ const MemberDetailModal = ({
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Email</Label>
-              <p className="p-2 bg-secondary/30 rounded-lg">{member.email}</p>
+              <p className="p-2 bg-secondary/30 rounded-lg text-sm">{member.email}</p>
               {isEditing && (
                 <p className="text-xs text-muted-foreground">Email cannot be changed from admin panel</p>
               )}
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
-              <p className="p-2 bg-secondary/30 rounded-lg font-mono">••••••••</p>
+              <p className="p-2 bg-secondary/30 rounded-lg font-mono text-sm">••••••••</p>
               {isEditing && (
                 <p className="text-xs text-muted-foreground">Use "Reset Password" button above</p>
               )}
@@ -385,7 +459,7 @@ const MemberDetailModal = ({
                   onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
                 />
               ) : (
-                <p className="p-2 bg-secondary/30 rounded-lg">{member.phone}</p>
+                <p className="p-2 bg-secondary/30 rounded-lg text-sm">{member.phone}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -396,17 +470,29 @@ const MemberDetailModal = ({
                   onChange={(e) => setEditData({ ...editData, seatNumber: e.target.value })}
                 />
               ) : (
-                <p className="p-2 bg-secondary/30 rounded-lg">{member.seatNumber || 'N/A'}</p>
+                <p className="p-2 bg-secondary/30 rounded-lg text-sm">{member.seatNumber || 'N/A'}</p>
               )}
             </div>
             {/* Aadhaar Doc */}
-            {(member as any).aadhaarDoc && (
-              <div className="space-y-2">
+            {member.aadhaarDoc && (
+              <div className="space-y-2 sm:col-span-2">
                 <Label>Aadhaar Card</Label>
                 <div className="p-2 bg-secondary/30 rounded-lg">
-                  <a href={(member as any).aadhaarDoc} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">
-                    View Aadhaar Document
-                  </a>
+                  {member.aadhaarDoc.startsWith('data:image') ? (
+                    <img
+                      src={member.aadhaarDoc}
+                      alt="Aadhaar Document"
+                      className="max-w-full max-h-[400px] rounded-lg object-contain"
+                    />
+                  ) : member.aadhaarDoc.startsWith('data:application/pdf') ? (
+                    <iframe
+                      src={member.aadhaarDoc}
+                      title="Aadhaar Document"
+                      className="w-full h-[400px] rounded-lg border-0"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Unsupported document format</p>
+                  )}
                 </div>
               </div>
             )}
@@ -419,7 +505,7 @@ const MemberDetailModal = ({
                   onChange={(e) => setEditData({ ...editData, monthlyFee: Number(e.target.value) })}
                 />
               ) : (
-                <p className="p-2 bg-secondary/30 rounded-lg">₹{member.monthlyFee}</p>
+                <p className="p-2 bg-secondary/30 rounded-lg text-sm">₹{member.monthlyFee}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -430,59 +516,95 @@ const MemberDetailModal = ({
                   onChange={(e) => setEditData({ ...editData, address: e.target.value })}
                 />
               ) : (
-                <p className="p-2 bg-secondary/30 rounded-lg">{member.address || 'N/A'}</p>
+                <p className="p-2 bg-secondary/30 rounded-lg text-sm">{member.address || 'N/A'}</p>
               )}
             </div>
+            {/* Edit Plan */}
+            {isEditing && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Change Plan <span className="text-xs text-muted-foreground">(applies to next dues)</span></Label>
+                <Select value={editData.plan} onValueChange={(v) => {
+                  const plan = LIBRARY_PLANS.find(p => p.id === v);
+                  setEditData({ ...editData, plan: v, monthlyFee: plan?.fee || editData.monthlyFee });
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LIBRARY_PLANS.map(plan => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.label} – ₹{plan.fee}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
-          {/* Analytics Widgets */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+          {/* Analytics Widgets — update with month change */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="stat-card">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-4 h-4 text-primary" />
-                <span className="text-sm text-muted-foreground">Total Days</span>
+                <span className="text-xs text-muted-foreground">This Month</span>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.totalDaysPresent}</p>
+              <p className="text-xl font-bold text-foreground">{stats.thisMonthDays}</p>
+              <p className="text-xs text-muted-foreground">{stats.attendanceRate}% rate</p>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-success" />
+                <span className="text-xs text-muted-foreground">Total Days</span>
+              </div>
+              <p className="text-xl font-bold text-foreground">{stats.totalDaysPresent}</p>
             </div>
             <div className="stat-card">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="w-4 h-4 text-accent-foreground" />
-                <span className="text-sm text-muted-foreground">Avg. Time</span>
+                <span className="text-xs text-muted-foreground">Avg. Time</span>
               </div>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-xl font-bold text-foreground">
                 {Math.floor(stats.avgDuration / 60)}h {stats.avgDuration % 60}m
               </p>
             </div>
             <div className="stat-card">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-4 h-4 text-success" />
-                <span className="text-sm text-muted-foreground">Total Paid</span>
+                <span className="text-xs text-muted-foreground">Total Paid</span>
               </div>
-              <p className="text-2xl font-bold text-success">₹{stats.totalPaid}</p>
+              <p className="text-xl font-bold text-success">₹{stats.totalPaid}</p>
             </div>
             <div className="stat-card border-l-4 border-warning">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="w-4 h-4 text-warning" />
-                <span className="text-sm text-muted-foreground">Pending</span>
+                <span className="text-xs text-muted-foreground">Pending</span>
               </div>
-              <p className="text-2xl font-bold text-warning">₹{stats.totalPending}</p>
+              <p className="text-xl font-bold text-warning">₹{stats.totalPending}</p>
               <p className="text-xs text-muted-foreground">{stats.pendingCount} due{stats.pendingCount !== 1 ? 's' : ''}</p>
-            </div>
-            <div className="stat-card">
-              <div className="flex items-center gap-2 mb-2">
-                <IndianRupee className="w-4 h-4 text-primary" />
-                <span className="text-sm text-muted-foreground">Payments</span>
-              </div>
-              <p className="text-2xl font-bold text-foreground">{stats.totalPayments}</p>
             </div>
           </div>
 
-          {/* Attendance Calendar */}
+          {/* Attendance Calendar with Month Navigation */}
           <div className="p-4 bg-secondary/30 rounded-xl">
-            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              {format(currentMonth, 'MMMM yyyy')} Attendance
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                {format(currentMonth, 'MMMM yyyy')}
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}
+                disabled={format(addMonths(currentMonth, 1), 'yyyy-MM') > format(new Date(), 'yyyy-MM')}
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
 
             <div className="grid grid-cols-7 gap-1 sm:gap-2">
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
@@ -567,21 +689,19 @@ const MemberDetailModal = ({
                         {isPaid ? (
                           <CheckCircle className="w-4 h-4 text-success" />
                         ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              className="btn-primary gap-1 text-xs h-7 px-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMarkPaidTarget({ id: due.id, memberName: member.name, amount: due.amount });
-                                setMarkPaidPin('');
-                                setShowMarkPaidDialog(true);
-                              }}
-                            >
-                              <CheckCircle className="w-3 h-3" />
-                              Paid
-                            </Button>
-                          </>
+                          <Button
+                            size="sm"
+                            className="btn-primary gap-1 text-xs h-7 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMarkPaidTarget({ id: due.id, memberName: member.name, amount: due.amount });
+                              setMarkPaidPin('');
+                              setShowMarkPaidDialog(true);
+                            }}
+                          >
+                            <CheckCircle className="w-3 h-3" />
+                            Paid
+                          </Button>
                         )}
                         {onDeleteDue && (
                           <Button
@@ -607,7 +727,7 @@ const MemberDetailModal = ({
 
         {/* Add Payment Dialog */}
         <Dialog open={showAddPaymentDialog} onOpenChange={setShowAddPaymentDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md" onClick={(e) => e.stopPropagation()}>
             <DialogHeader>
               <DialogTitle className="font-display flex items-center gap-2">
                 <Plus className="w-5 h-5" />
@@ -616,17 +736,13 @@ const MemberDetailModal = ({
             </DialogHeader>
             
             <div className="py-4 space-y-4">
-              {/* Period Start */}
               <div className="space-y-2">
                 <Label>Period Start</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !newPayment.periodStart && "text-muted-foreground"
-                      )}
+                      className={cn("w-full justify-start text-left font-normal", !newPayment.periodStart && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {newPayment.periodStart ? format(newPayment.periodStart, "PPP") : "Pick start date"}
@@ -644,17 +760,13 @@ const MemberDetailModal = ({
                 </Popover>
               </div>
 
-              {/* Period End */}
               <div className="space-y-2">
                 <Label>Period End</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !newPayment.periodEnd && "text-muted-foreground"
-                      )}
+                      className={cn("w-full justify-start text-left font-normal", !newPayment.periodEnd && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {newPayment.periodEnd ? format(newPayment.periodEnd, "PPP") : "Pick end date"}
@@ -672,17 +784,13 @@ const MemberDetailModal = ({
                 </Popover>
               </div>
 
-              {/* Submission Date */}
               <div className="space-y-2">
                 <Label>Submission Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !newPayment.submissionDate && "text-muted-foreground"
-                      )}
+                      className={cn("w-full justify-start text-left font-normal", !newPayment.submissionDate && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {newPayment.submissionDate ? format(newPayment.submissionDate, "PPP") : "Pick submission date"}
@@ -700,7 +808,6 @@ const MemberDetailModal = ({
                 </Popover>
               </div>
 
-              {/* Amount */}
               <div className="space-y-2">
                 <Label>Amount (₹)</Label>
                 <Input
@@ -713,19 +820,15 @@ const MemberDetailModal = ({
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddPaymentDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleProceedToConfirm} className="btn-primary">
-                Record Payment
-              </Button>
+              <Button variant="outline" onClick={() => setShowAddPaymentDialog(false)}>Cancel</Button>
+              <Button onClick={handleProceedToConfirm} className="btn-primary">Record Payment</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Password Confirmation Dialog */}
         <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-          <DialogContent className="max-w-xs">
+          <DialogContent className="max-w-xs" onClick={(e) => e.stopPropagation()}>
             <DialogHeader>
               <DialogTitle className="font-display">Confirm Payment</DialogTitle>
             </DialogHeader>
@@ -749,9 +852,7 @@ const MemberDetailModal = ({
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>Cancel</Button>
               <Button onClick={handleConfirmPayment} className="btn-primary" disabled={isRecording}>
                 {isRecording ? 'Recording...' : 'Confirm Payment'}
               </Button>
@@ -761,7 +862,7 @@ const MemberDetailModal = ({
 
         {/* Mark Paid PIN Dialog */}
         <Dialog open={showMarkPaidDialog} onOpenChange={setShowMarkPaidDialog}>
-          <DialogContent className="max-w-xs">
+          <DialogContent className="max-w-xs" onClick={(e) => e.stopPropagation()}>
             <DialogHeader>
               <DialogTitle className="font-display text-success">Mark Due as Paid</DialogTitle>
             </DialogHeader>
@@ -792,7 +893,7 @@ const MemberDetailModal = ({
 
         {/* Delete Due PIN Dialog */}
         <Dialog open={showDeleteDueDialog} onOpenChange={setShowDeleteDueDialog}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-sm" onClick={(e) => e.stopPropagation()}>
             <DialogHeader>
               <DialogTitle className="font-display text-destructive">Delete Due Record</DialogTitle>
             </DialogHeader>

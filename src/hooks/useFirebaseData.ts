@@ -304,10 +304,15 @@ export const useAutoDueGeneration = (members: Member[], dues: FeeRecord[]) => {
             ? parseISO(member.joinDate)
             : parseISO(member.createdAt.split('T')[0]);
 
-          const daysSinceJoin = differenceInDays(today, joinDate);
-          if (daysSinceJoin < 30) continue;
+          // If member was reactivated, use reactivation date as base
+          const baseDate = (member as any).reactivatedAt 
+            ? parseISO((member as any).reactivatedAt.split('T')[0])
+            : joinDate;
 
-          let latestPeriodEnd: Date = joinDate;
+          const daysSinceBase = differenceInDays(today, baseDate);
+          if (daysSinceBase < 30) continue;
+
+          let latestPeriodEnd: Date = baseDate;
           if (freshMemberDues.length > 0) {
             const sorted = [...freshMemberDues].sort(
               (a, b) =>
