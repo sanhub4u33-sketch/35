@@ -125,7 +125,7 @@ const HomePage = () => {
     { icon: Wifi, title: 'Dual High-Speed WiFi', description: 'Blazing fast internet with backup connection for uninterrupted studying.' },
     { icon: Zap, title: 'First Digital Library in Lucknow', description: 'Pioneer digital library in Lucknow with modern facilities.' },
     { icon: Users, title: 'Peaceful Environment', description: 'Quiet, air-conditioned space perfect for focused studying.' },
-    { icon: BookOpen, title: 'Study Materials', description: 'Access to reference books and study materials for various exams.' },
+    
     { icon: UserCheck, title: 'Digital Attendance', description: 'Smart digital attendance tracking with real-time monitoring.' },
     { icon: Sparkles, title: 'Premium Infrastructure', description: 'Modern furniture, power backup, and optimized lighting for comfort.' },
   ];
@@ -263,13 +263,6 @@ const HomePage = () => {
                   </Button>
                 </motion.div>
               </Link>
-              <a href="#features">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
-                  <Button size="lg" variant="outline" className="text-base px-8 py-6">
-                    Explore Features
-                  </Button>
-                </motion.div>
-              </a>
             </motion.div>
 
             {/* Stats Row */}
@@ -375,7 +368,6 @@ const HomePage = () => {
                   'Power backup for uninterrupted study',
                   'Digital attendance tracking',
                   'Flexible monthly payment options',
-                  'Study materials & reference books',
                 ].map((benefit, i) => (
                   <motion.div 
                     key={benefit} 
